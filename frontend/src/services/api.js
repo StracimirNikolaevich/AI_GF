@@ -59,5 +59,36 @@ export const api = {
         const response = await fetch(`${API_BASE}/agents`);
         if (!response.ok) return []; // Fallback empty
         return await response.json();
+    },
+
+    // HuggingFace Model APIs
+    textToSpeech: async (text, voice = 'en') => {
+        const response = await fetch(`${API_BASE}/tts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, voice })
+        });
+        if (!response.ok) throw new Error('TTS failed');
+        return await response.json();
+    },
+
+    generateImage: async (prompt = '', model = 'ddpm') => {
+        const response = await fetch(`${API_BASE}/image/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, model })
+        });
+        if (!response.ok) throw new Error('Image generation failed');
+        return await response.json();
+    },
+
+    chatReasoning: async (messages) => {
+        const response = await fetch(`${API_BASE}/chat/reasoning`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages })
+        });
+        if (!response.ok) throw new Error('Reasoning failed');
+        return await response.json();
     }
 };

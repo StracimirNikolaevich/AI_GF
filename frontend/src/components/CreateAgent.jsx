@@ -117,14 +117,16 @@ const CreateAgent = ({ onClose, onCreate }) => {
                                             <input type="file" className="hidden" onChange={(e) => setAvatar(e.target.files[0])} accept="image/*" />
                                         </div>
                                         <button
-                                            onClick={() => {
-                                                const styles = [
-                                                    "/assets/Avatar.png",
-                                                    "/assets/cover.png",
-                                                    "/assets/logo.png"
-                                                ];
-                                                const random = styles[Math.floor(Math.random() * styles.length)];
-                                                setAvatar(random);
+                                            onClick={async () => {
+                                                try {
+                                                    const result = await api.generateImage('', 'ddpm');
+                                                    setAvatar(result.image); // base64 data URL
+                                                } catch (e) {
+                                                    console.error('Image gen failed:', e);
+                                                    // Fallback to local assets
+                                                    const styles = ["/assets/Avatar.png", "/assets/cover.png"];
+                                                    setAvatar(styles[Math.floor(Math.random() * styles.length)]);
+                                                }
                                             }}
                                             className="mt-2 w-full py-1.5 text-xs text-violet-400 border border-violet-500/30 rounded-lg hover:bg-violet-500/10 flex items-center justify-center space-x-1"
                                         >

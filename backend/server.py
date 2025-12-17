@@ -7116,8 +7116,100 @@ async def create_agent(request: AgentCreateRequest):
 async def get_agents():
     return JSONResponse(content=AGENTS_DB)
 
+# ====== HuggingFace Model Endpoints ======
+from py.model_manager import model_manager
+import base64
+from io import BytesIO
+
+@app.post("/v1/tts")
+async def text_to_speech(request: dict):
+    """Generate speech from text using XTTS-v2"""
+    try:
+        text = request.get("text", "")
+        voice = request.get("voice", "en")  # Language/voice selection
+        
+        if not text:
+            return JSONResponse({"error": "No text provided"}, status_code=400)
+        
+        logger.info(f"TTS request: {text[:50]}...")
+        tts_model = model_manager.load_tts_model()
+        
+        # Generate audio to BytesIO
+        audio_buffer = BytesIO()
+        tts_model.tts_to_file(
+            text=text,
+            file_path=audio_buffer,
+            speaker_wav=None,  # Can add voice cloning here
+            language=voice
+        )
+        
+        # Encode as base64
+        audio_buffer.seek(0)
+        audio_base64 = base64.b64encode(audio_buffer.read()).decode()
+        
+        return JSONResponse({
+            "audio": f"data:audio/wav;base64,{audio_base64}",
+            "text": text
+        })
+    except Exception as e:
+        logger.error(f"TTS error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/v1/image/generate")
+async def generate_image(request: dict):
+    """Generate image using DDPM (fast) or Wan2.2 (quality)"""
+    try:
+        prompt = request.get("prompt", "")
+        model_type = request.get("model", "ddpm")  # "ddpm" or "wan"
+        
+        if model_type == "ddpm":
+            logger.info("Generating image with DDPM")
+            ddpm = model_manager.load_ddpm_model()
+            image = ddpm().images[0]
+        else:
+            logger.info(f"Generating image: {prompt}")
+            sd_model = model_manager.load_image_gen_model()
+            image = sd_model(prompt).images[0]
+        
+        # Convert PIL Image to base64
+        buffer = BytesIO()
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
+        img_base64 = base64.b64encode(buffer.read()).decode()
+        
+        return JSONResponse({
+            "image": f"data:image/png;base64,{img_base64}",
+            "prompt": prompt,
+            "model": model_type
+        })
+    except Exception as e:
+        logger.error(f"Image gen error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/v1/chat/reasoning")
+async def chat_reasoning(request: dict):
+    """DeepSeek reasoning endpoint (uses existing OpenAI client)"""
+    try:
+        messages = request.get("messages", [])
+        
+        # DeepSeek API is OpenAI-compatible
+        response = await client.chat.completions.create(
+            model="deepseek-chat",  # or deepseek-reasoner
+            messages=messages,
+            stream=False
+        )
+        
+        return JSONResponse({
+            "content": response.choices[0].message.content,
+            "reasoning": response.choices[0].message.get("reasoning_content", "")
+        })
+    except Exception as e:
+        logger.error(f"Reasoning error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 # Serve Frontend Build
 app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="static")
+
 
 # 简化main函数
 if __name__ == "__main__":

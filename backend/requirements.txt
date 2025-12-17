@@ -50,3 +50,6 @@ lark_oapi
 pydub
 imageio_ffmpeg
 discord.py
+coqui-tts>=0.22.0
+diffusers>=0.25.0
+accelerate>=0.25.0
