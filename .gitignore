@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+.env
+
+# Build
+dist/
+build/
+*.spec
+
+# Logs
+*.log
+npm-debug.log*
+
+# System
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Source Repo (if we want to exclude the original reference repo, usually yes if we merged assets)
+# source_repo/ 
+# actually, keeping source_repo might be useful for history, but if it has its own .git it's a submodule or nested repo. 
+# safely, let's ignore the nested .git inside it or just ignore the folder if not needed.
+# Since we copied assets, we might not need it, but let's keep it tracked if the user wants "everything". 
+# However, nested git repos are tricky. I will assume we track it as a folder, but git will likely complain about the nested .git.
+# I'll let git handle the nested repo warning or submodule suggestion, but for now just standard ignores.
