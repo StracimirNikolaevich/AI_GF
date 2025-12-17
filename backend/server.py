@@ -7081,11 +7081,78 @@ app.mount("/ext", StaticFiles(directory=EXT_DIR), name="ext")
 
 
 class AgentCreateRequest(BaseModel):
+    """
+    Create a character/agent.
+    traits: list of keywords selected in UI (e.g. ["funny","shy","flirty"])
+    The backend converts traits -> a stable personality prompt and stores it for that character.
+    """
     name: str
     description: str = ""
-    personality: str = ""
+    traits: List[str] = []
     style: str = ""
     tags: List[str] = []
+
+def _build_personality_prompt(
+    name: str,
+    traits: List[str],
+    user_name_placeholder: str = "{{user}}",
+    char_name_placeholder: str = "{{char}}",
+) -> str:
+    """
+    Build the personality/system text from trait keywords.
+    Stored per character and re-used on every chat.
+    """
+    # Normalize + dedupe while preserving order
+    cleaned: List[str] = []
+    seen = set()
+    for t in (traits or []):
+        t2 = (t or "").strip().lower()
+        if t2 and t2 not in seen:
+            seen.add(t2)
+            cleaned.append(t2)
+
+    # Minimal trait -> behavior mapping (extend freely)
+    trait_map: Dict[str, str] = {
+        "funny": "Uses light humor and playful teasing when appropriate.",
+        "sweet": "Is warm, affectionate, and supportive in tone.",
+        "caring": "Checks in on the user’s feelings and responds with empathy.",
+        "shy": "Is a bit reserved at first, opens up gradually, avoids being overly intense.",
+        "confident": "Speaks with confidence, takes initiative in conversations.",
+        "intelligent": "Explains clearly, reasons step-by-step, asks thoughtful questions.",
+        "flirty": "Uses mild, non-explicit flirtation and compliments.",
+        "romantic": "Uses romantic language, focuses on connection and bonding.",
+        "dominant": "Takes a leading tone while still respecting boundaries and consent.",
+        "submissive": "Prefers a gentle, compliant tone and asks for direction.",
+        "protective": "Is reassuring, loyal, and prioritizes the user’s comfort and safety.",
+        "sarcastic": "Uses mild sarcasm without being cruel; keeps it playful.",
+        "serious": "Keeps responses focused, calm, and practical.",
+        "energetic": "Uses enthusiastic pacing, short lively lines, and proactive engagement.",
+        "calm": "Maintains a soothing, grounded, low-drama tone.",
+    }
+
+    bullets = []
+    for t in cleaned:
+        bullets.append(trait_map.get(t, f"Expresses the trait '{t}' consistently in tone and decisions."))
+
+    # The stored prompt supports placeholders:
+    # {{user}} = user's name (your code already replaces it)
+    # {{char}} = character name (your code already replaces it)
+    prompt_lines = [
+        f"You are {char_name_placeholder} (character name: {name}).",
+        f"You are chatting with {user_name_placeholder}.",
+        "",
+        "Core behavior rules:",
+        "- Stay in character at all times.",
+        "- Be consistent with the personality traits below across the entire conversation.",
+        "- Keep replies natural, conversational, and context-aware.",
+        "",
+        "Personality traits and behaviors:",
+    ]
+    prompt_lines += [f"- {b}" for b in bullets] if bullets else [
+        "- Friendly, supportive, and consistent."
+    ]
+
+    return "\n".join(prompt_lines)
 
 # Mock Database
 AGENTS_DB = []
@@ -7094,11 +7161,18 @@ AGENTS_DB = []
 async def create_agent(request: AgentCreateRequest):
     logger.info(f"Creating agent: {request.name}")
     agent_id = str(uuid.uuid4())
+    
+    personality_prompt = _build_personality_prompt(
+        name=request.name,
+        traits=request.traits,
+    )
+    
     new_agent = {
         "id": agent_id,
         "name": request.name,
         "description": request.description,
-        "personality": request.personality,
+        "traits": request.traits,
+        "personality": personality_prompt,  # generated + stored
         "style": request.style,
         "tags": request.tags,
         "created_at": str(time.time())
