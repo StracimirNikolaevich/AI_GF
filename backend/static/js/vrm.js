@@ -3842,6 +3842,13 @@ window.vrmAPI = {
             }
             currentVrm.expressionManager.setValue('aa', 0);
         }
+    },
+    toggleControls: () => {
+        if (controls) {
+            controls.enabled = !controls.enabled;
+            return controls.enabled;
+        }
+        return false;
     }
 };
 

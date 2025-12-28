@@ -608,27 +608,201 @@
             box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
         }
 
-        .message-input {
-            width: 100%;
-            background: rgba(255, 255, 255, 0.06);
-            backdrop-filter: blur(10px);
-            border: 2px solid rgba(255, 255, 255, 0.12);
-            border-radius: 28px;
-            padding: 14px 48px 14px 24px;
+        /* Modern Premium UI Palette */
+        :root {
+            --primary: #ec4899;
+            --primary-glow: rgba(236, 72, 153, 0.4);
+            --secondary: #8b5cf6;
+            --bg-dark: #09090b;
+            --bg-card: rgba(18, 18, 22, 0.7);
+            --border-white: rgba(255, 255, 255, 0.08);
+            --text-muted: #94a3b8;
+        }
+
+        body {
+            background-color: var(--bg-dark);
             color: white;
-            font-size: 15px;
-            resize: none;
-            min-height: 56px;
-            max-height: 120px;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Sidebar */
+        .sidebar {
+            background: linear-gradient(180deg, rgba(12, 12, 16, 0.95) 0%, rgba(9, 9, 11, 0.98) 100%);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border-white);
+            box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+            z-index: 50;
+        }
+
+        /* Chat Container Layout */
+        .chat-container {
+            background: var(--bg-dark);
+        }
+
+        /* Message Bubbles - Premium Style */
+        .message {
+            margin-bottom: 1.5rem;
+            max-width: 85%;
+            animation: messageFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes messageFadeIn {
+            from { opacity: 0; transform: translateY(10px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .message.companion {
+            align-self: flex-start;
+        }
+
+        .message-content {
+            padding: 1rem 1.25rem;
+            border-radius: 1.25rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            position: relative;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            border-bottom-right-radius: 0.25rem;
+        }
+
+        .message.companion .message-content {
+            background: var(--bg-card);
+            border: 1px solid var(--border-white);
+            color: #f1f5f9;
+            border-bottom-left-radius: 0.25rem;
+        }
+
+        /* Bond Level UI - Enhanced */
+        .bond-card {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border: 1px solid rgba(236, 72, 153, 0.2);
+            border-radius: 1.5rem;
+            padding: 1.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bond-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .bond-progress-bg {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 999px;
+            height: 8px;
+            padding: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .bond-progress-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #ec4899, #8b5cf6);
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        /* VRM UI Overlay Controls */
+        .vrm-overlay-controls {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            padding: 0.75rem 1.5rem;
+            border-radius: 2rem;
+            border: 1px solid var(--border-white);
+            z-index: 40;
+        }
+
+        .vrm-control-btn {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .vrm-control-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1);
+        }
+
+        /* Improved Input Area */
+        .input-area {
+            background: linear-gradient(0deg, rgba(9, 9, 11, 1) 0%, rgba(9, 9, 11, 0.8) 100%);
+            backdrop-filter: blur(20px);
+            padding: 1.5rem 2rem;
+            border-top: 1px solid var(--border-white);
+        }
+
+        .message-input {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-white);
+            border-radius: 1.5rem;
+            padding: 1rem 3.5rem 1rem 1.5rem;
+            font-size: 1rem;
+            transition: all 0.3s;
         }
 
         .message-input:focus {
-            outline: none;
-            border-color: #ec4899;
-            background: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 0 20px rgba(236, 72, 153, 0.15);
-            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+        }
+
+        /* Companion List Items */
+        .companion-item {
+            margin-bottom: 0.5rem;
+            border-radius: 1rem;
+            padding: 0.75rem;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .companion-item:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .companion-item.active {
+            background: rgba(236, 72, 153, 0.1);
+            border-color: rgba(236, 72, 153, 0.2);
+        }
+
+        .companion-item.active .status-dot {
+            background: var(--primary);
+            box-shadow: 0 0 8px var(--primary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
         }
 
         #micBtn.listening {
@@ -1358,44 +1532,52 @@
             <!-- Sidebar -->
             <div class="sidebar w-80 flex-shrink-0 flex flex-col border-r border-white/10 bg-black/40 backdrop-blur-xl" id="chatSidebar">
                 <div class="p-6 border-b border-white/10">
-                    <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-lg shadow-pink-500/30">
                                 <i class="fas fa-heart text-white text-sm"></i>
                             </div>
-                            <span class="text-lg font-bold">Luvr<span class="text-pink-500">.ai</span></span>
+                            <span class="text-xl font-black tracking-tight">Luvr<span class="text-pink-500">.ai</span></span>
                         </div>
                         <button class="md:hidden text-gray-400 hover:text-white" onclick="window.chatApp.toggleSidebar()">
                             <i class="fas fa-times text-xl"></i>
                         </button>
                     </div>
-                    <div class="text-center">
-                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 mx-auto mb-3 flex items-center justify-center text-3xl overflow-hidden shadow-xl" id="companionAvatar">👤</div>
-                        <h3 class="font-bold text-lg" id="companionName">Loading...</h3>
-                        <p class="text-sm text-gray-400 mb-4" id="companionArchetype">Your AI Companion</p>
-                        
-                        <!-- Bond Level -->
-                        <div class="px-4 py-2 bg-white/5 rounded-xl border border-white/10 mb-4">
-                            <div class="flex justify-between text-xs mb-1.5">
-                                <span class="text-pink-400 font-semibold uppercase tracking-wider">Bond Level</span>
-                                <span class="text-white font-bold" id="relLevelText">1/10</span>
+                    
+                    <div class="text-center mb-6">
+                        <div class="relative inline-block mb-4">
+                            <div class="w-24 h-24 rounded-full p-1 bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500 shadow-2xl">
+                                <div class="w-full h-full rounded-full bg-black flex items-center justify-center text-4xl overflow-hidden" id="companionAvatar">👤</div>
                             </div>
-                            <div class="w-full h-1.5 bg-black/30 rounded-full overflow-hidden">
-                                <div id="relLevelBar" class="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-1000" style="width: 10%"></div>
-                            </div>
+                            <div class="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-green-500 border-4 border-[#09090b] shadow-lg"></div>
                         </div>
-
-                        <!-- Voice Toggle -->
-                        <button id="voiceToggle" class="w-full py-2 px-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between text-sm hover:bg-white/10 transition-all" onclick="window.chatApp.toggleVoice()">
-                            <span class="flex items-center gap-2">
-                                <i class="fas fa-volume-up text-pink-400" id="voiceIcon"></i>
-                                Voice Responses
-                            </span>
-                            <div class="w-8 h-4 bg-pink-500/30 rounded-full relative transition-colors" id="voiceSwitchBg">
-                                <div class="w-3 h-3 bg-white rounded-full absolute top-0.5 right-1 transition-all" id="voiceSwitchDot"></div>
-                            </div>
-                        </button>
+                        <h3 class="font-bold text-xl mb-1 tracking-tight" id="companionName">Loading...</h3>
+                        <p class="text-sm text-slate-400 font-medium" id="companionArchetype">Your AI Companion</p>
                     </div>
+                    
+                    <!-- Bond Level -->
+                    <div class="bond-card mb-6">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-pink-500/80">Bond Progression</span>
+                            <span class="text-xs font-bold text-white px-2 py-0.5 rounded-md bg-white/5" id="relLevelText">1/10</span>
+                        </div>
+                        <div class="bond-progress-bg">
+                            <div id="relLevelBar" class="bond-progress-fill transition-all duration-1000" style="width: 10%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Voice Toggle -->
+                    <button id="voiceToggle" class="w-full py-3 px-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between group hover:bg-white/10 transition-all" onclick="window.chatApp.toggleVoice()">
+                        <span class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center transition-colors group-hover:bg-pink-500/20">
+                                <i class="fas fa-volume-up text-pink-400 text-xs" id="voiceIcon"></i>
+                            </div>
+                            <span class="text-xs font-bold text-slate-200">Voice Response</span>
+                        </span>
+                        <div class="w-10 h-5 bg-slate-800 rounded-full relative transition-colors" id="voiceSwitchBg">
+                            <div class="w-3.5 h-3.5 bg-white rounded-full absolute top-0.5 right-1 transition-all shadow-sm" id="voiceSwitchDot"></div>
+                        </div>
+                    </button>
                 </div>
                 <div class="flex-1 p-4 overflow-y-auto">
                     <button class="w-full px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-sm mb-6 flex items-center justify-center gap-2 border border-white/5" onclick="backToCreate()">
@@ -1414,23 +1596,27 @@
             <!-- Main Content: Split View -->
             <div class="flex-1 flex flex-col md:flex-row relative">
                 <!-- Left: VRM Container -->
-                <div id="vrm-container" class="w-full md:w-1/2 h-1/2 md:h-full relative overflow-hidden bg-black">
-                    <!-- Scene Selector -->
-                    <div class="scene-selector">
-                        <button onclick="window.chatApp.changeScene('room')" class="scene-btn active" title="Bedroom" id="scene-room">
+                <div id="vrm-container" class="w-full md:w-1/2 h-1/2 md:h-full relative overflow-hidden bg-black group/vrm">
+                    <!-- VRM UI Overlay Controls -->
+                    <div class="vrm-overlay-controls opacity-0 group-hover/vrm:opacity-100 transition-opacity duration-300">
+                        <button onclick="window.chatApp.changeScene('room')" class="vrm-control-btn" title="Bedroom">
                             <i class="fas fa-bed"></i>
                         </button>
-                        <button onclick="window.chatApp.changeScene('beach')" class="scene-btn" title="Beach" id="scene-beach">
+                        <button onclick="window.chatApp.changeScene('beach')" class="vrm-control-btn" title="Beach">
                             <i class="fas fa-umbrella-beach"></i>
                         </button>
-                        <button onclick="window.chatApp.changeScene('garden')" class="scene-btn" title="Garden" id="scene-garden">
+                        <button onclick="window.chatApp.changeScene('garden')" class="vrm-control-btn" title="Garden">
                             <i class="fas fa-leaf"></i>
                         </button>
-                        <button onclick="window.chatApp.changeScene('studio')" class="scene-btn" title="Studio" id="scene-studio">
+                        <button onclick="window.chatApp.changeScene('studio')" class="vrm-control-btn" title="Studio">
                             <i class="fas fa-camera-retro"></i>
                         </button>
+                        <div class="w-px h-6 bg-white/10 mx-1 align-self-center"></div>
+                        <button onclick="window.chatApp.toggleOrbitControls()" class="vrm-control-btn" title="Toggle Camera Controls">
+                            <i class="fas fa-video"></i>
+                        </button>
                     </div>
-                    
+
                     <div id="vrm-loading" class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-30 hidden">
                         <div class="text-center">
                             <div class="media-loading-spinner mb-3 mx-auto"></div>
@@ -1459,28 +1645,25 @@
                         <!-- Messages appear here -->
                     </div>
 
-                    <div class="input-area p-4 bg-black/40 border-t border-white/10">
+                    <div class="input-area">
                         <div class="flex items-end gap-3 max-w-4xl mx-auto w-full">
                             <div class="relative flex-1">
-                                <textarea class="message-input w-full pr-12" id="messageInput" placeholder="Type your message..." rows="1" style="min-height: 52px; max-height: 150px;"></textarea>
+                                <textarea class="message-input w-full" id="messageInput" placeholder="Write a message..." rows="1" style="min-height: 54px; max-height: 150px;"></textarea>
                                 <button id="micBtn" onclick="window.chatApp.toggleSTT()" 
-                                    class="absolute right-3 bottom-3 p-2 rounded-lg text-white/30 hover:text-pink-400 hover:bg-white/5 transition-all"
+                                    class="absolute right-3 bottom-3 p-2 rounded-xl text-slate-500 hover:text-pink-500 hover:bg-pink-500/10 transition-all"
                                     title="Voice Input">
                                     <i class="fas fa-microphone"></i>
-                                    <div id="micPulse" class="absolute inset-0 rounded-lg bg-pink-500/20 scale-0 transition-all hidden"></div>
+                                    <div id="micPulse" class="absolute inset-0 rounded-xl bg-pink-500/20 scale-0 transition-all hidden"></div>
                                 </button>
                             </div>
                             <div class="flex gap-2 pb-1">
-                                <button class="media-button p-3 rounded-full bg-white/5 text-gray-400 hover:text-yellow-400 transition-colors" onclick="window.chatApp.openGiftMenu()" title="Send Gift">
+                                <button class="media-button p-3.5 rounded-2xl bg-white/5 text-slate-400 hover:text-yellow-400 hover:bg-yellow-400/10 transition-all" onclick="window.chatApp.openGiftMenu()" title="Send Gift">
                                     <i class="fas fa-gift"></i>
                                 </button>
-                                <button class="media-button photo p-3 rounded-full bg-white/5 text-gray-400 hover:text-pink-400 transition-colors" onclick="window.chatApp.requestMedia('image')" title="Request Photo">
+                                <button class="media-button photo p-3.5 rounded-2xl bg-white/5 text-slate-400 hover:text-pink-400 hover:bg-pink-400/10 transition-all" onclick="window.chatApp.requestMedia('image')" title="Request Photo">
                                     <i class="fas fa-camera"></i>
                                 </button>
-                                <button class="media-button video p-3 rounded-full bg-white/5 text-gray-400 hover:text-purple-400 transition-colors" onclick="window.chatApp.requestMedia('video')" title="Request Video">
-                                    <i class="fas fa-video"></i>
-                                </button>
-                                <button class="send-button" id="sendButton" onclick="window.chatApp.sendMessage()">
+                                <button class="send-button w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/20 hover:shadow-pink-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all" id="sendButton" onclick="window.chatApp.sendMessage()">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
                             </div>
@@ -1960,6 +2143,13 @@
                 if (input) {
                     input.value = type === 'image' ? "Send me a picture of yourself" : "Send me a short video clip of yourself";
                     this.sendMessage();
+                }
+            }
+
+            toggleOrbitControls() {
+                if (window.vrmAPI && window.vrmAPI.toggleControls) {
+                    const enabled = window.vrmAPI.toggleControls();
+                    console.log('Camera controls:', enabled);
                 }
             }
 
