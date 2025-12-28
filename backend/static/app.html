@@ -20,6 +20,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --primary: #ec4899;
+            --primary-glow: rgba(236, 72, 153, 0.4);
+            --secondary: #8b5cf6;
+            --bg-dark: #09090b;
+            --bg-card: rgba(18, 18, 22, 0.7);
+            --border-white: rgba(255, 255, 255, 0.08);
+            --text-muted: #94a3b8;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -27,9 +37,8 @@
         }
         
         body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 50%, #0a0a1a 100%);
-            background-attachment: fixed;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg-dark);
             color: #ffffff;
             min-height: 100vh;
             overflow-x: hidden;
@@ -44,10 +53,11 @@
             right: 0;
             bottom: 0;
             background: 
-                radial-gradient(circle at 20% 50%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+                radial-gradient(circle at 20% 30%, rgba(236, 72, 153, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.15) 0%, transparent 50%);
             pointer-events: none;
             z-index: -2;
+            transition: all 1s ease;
         }
 
         /* View Management */
@@ -61,7 +71,8 @@
             transform: translateX(0) scale(1);
         }
 
-        canvas {
+        /* Fixed background canvas for explore/create views */
+        #explore-view canvas, #creation-view canvas {
             position: fixed;
             top: 0;
             left: 0;
@@ -531,22 +542,6 @@
             border: 1px solid rgba(255, 100, 100, 0.3);
         }
 
-        .retry-button {
-            margin-top: 10px;
-            padding: 8px 16px;
-            background: rgba(236, 72, 153, 0.2);
-            border: 1px solid rgba(236, 72, 153, 0.4);
-            border-radius: 8px;
-            color: #fff;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .retry-button:hover {
-            background: rgba(236, 72, 153, 0.3);
-            transform: translateY(-2px);
-        }
-
         /* Explore Preview Slideshow */
         .preview-slideshow {
             position: relative;
@@ -580,50 +575,24 @@
         }
 
         .preview-card {
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--bg-card);
             backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 16px;
+            border: 1px solid var(--border-white);
+            border-radius: 1.5rem;
+            padding: 1rem;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             overflow: hidden;
         }
 
         .preview-card:hover {
-            border-color: rgba(236, 72, 153, 0.5);
-            transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(236, 72, 153, 0.2);
+            border-color: var(--primary);
+            transform: translateY(-8px);
+            box-shadow: 0 12px 32px rgba(236, 72, 153, 0.3);
         }
 
         .preview-card:hover .preview-slideshow {
             transform: scale(1.05);
-        }
-
-        .input-area {
-            padding: 24px;
-            background: rgba(15, 15, 17, 0.6);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
-        }
-
-        /* Modern Premium UI Palette */
-        :root {
-            --primary: #ec4899;
-            --primary-glow: rgba(236, 72, 153, 0.4);
-            --secondary: #8b5cf6;
-            --bg-dark: #09090b;
-            --bg-card: rgba(18, 18, 22, 0.7);
-            --border-white: rgba(255, 255, 255, 0.08);
-            --text-muted: #94a3b8;
-        }
-
-        body {
-            background-color: var(--bg-dark);
-            color: white;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            overflow-x: hidden;
         }
 
         /* Glassmorphism Sidebar */
@@ -638,10 +607,16 @@
         /* Chat Container Layout */
         .chat-container {
             background: var(--bg-dark);
+            display: flex;
+            height: 100vh;
+            position: relative;
         }
 
         /* Message Bubbles - Premium Style */
         .message {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
             margin-bottom: 1.5rem;
             max-width: 85%;
             animation: messageFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -655,10 +630,7 @@
         .message.user {
             align-self: flex-end;
             margin-left: auto;
-        }
-
-        .message.companion {
-            align-self: flex-start;
+            flex-direction: row-reverse;
         }
 
         .message-content {
@@ -668,12 +640,14 @@
             line-height: 1.6;
             position: relative;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            word-wrap: break-word;
         }
 
         .message.user .message-content {
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
             border-bottom-right-radius: 0.25rem;
+            box-shadow: 0 4px 16px rgba(236, 72, 153, 0.3);
         }
 
         .message.companion .message-content {
@@ -767,12 +741,16 @@
             padding: 1rem 3.5rem 1rem 1.5rem;
             font-size: 1rem;
             transition: all 0.3s;
+            color: white;
+            width: 100%;
+            resize: none;
         }
 
         .message-input:focus {
             background: rgba(255, 255, 255, 0.05);
             border-color: var(--primary);
             box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+            outline: none;
         }
 
         /* Companion List Items */
@@ -782,10 +760,15 @@
             padding: 0.75rem;
             transition: all 0.2s;
             border: 1px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
         }
 
         .companion-item:hover {
             background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.05);
         }
 
         .companion-item.active {
@@ -806,7 +789,7 @@
         }
 
         #micBtn.listening {
-            color: #ec4899 !important;
+            color: var(--primary) !important;
             animation: micPulse 1.5s infinite;
         }
 

@@ -19,21 +19,24 @@ const isElectron = typeof require !== 'undefined' || navigator.userAgent.include
 document.body.classList.add(isElectron ? 'electron' : 'web');
 
 // 优化渲染器设置
-const container = document.getElementById('vrm-container') || document.body;
+const getContainer = () => document.getElementById('vrm-container') || document.body;
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setSize(container.clientWidth || window.innerWidth, container.clientHeight || window.innerHeight);
+const initialContainer = getContainer();
+renderer.setSize(initialContainer.clientWidth || window.innerWidth, initialContainer.clientHeight || window.innerHeight);
 renderer.setClearColor(0x000000, 0);
 renderer.xr.enabled = true;
 
 // Move resize logic to a function
 function onWindowResize() {
-    const container = document.getElementById('vrm-container') || document.body;
+    const container = getContainer();
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
     
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
+    if (typeof camera !== 'undefined' && camera) {
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+    }
     
     renderer.setSize(width, height);
 }
@@ -146,7 +149,9 @@ if (document.getElementById('vrm-container')) {
 }
 
 // camera
-const camera = new THREE.PerspectiveCamera( 30.0, window.innerWidth / window.innerHeight, 0.1, 20.0 );
+const initialWidth = (getContainer().clientWidth || window.innerWidth);
+const initialHeight = (getContainer().clientHeight || window.innerHeight);
+const camera = new THREE.PerspectiveCamera( 30.0, initialWidth / initialHeight, 0.1, 20.0 );
 camera.position.set( 0.0, 1.0, 4.0 );
 camera.far = 1000; // 根据场景需要调整（例如 1000 或更大）
 camera.updateProjectionMatrix(); // 必须调用以生效
