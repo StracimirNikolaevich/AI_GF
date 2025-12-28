@@ -804,6 +804,15 @@
             100% { transform: scale(1); }
         }
 
+        .fa-spin-slow {
+            animation: spin 6s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
         @keyframes pulseIn {
             0% { transform: scale(0); opacity: 0.5; }
             100% { transform: scale(2); opacity: 0; }
@@ -1549,6 +1558,18 @@
                         </div>
                     </div>
 
+                    <!-- Mood & Ambience -->
+                    <div class="px-6 py-4 border-b border-white/10">
+                        <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-4">Ambience Control</h4>
+                        <div class="flex gap-2">
+                            <button id="musicToggle" onclick="window.chatApp.toggleMusic()" 
+                                class="flex-1 py-2 px-3 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-2 hover:bg-white/10 transition-all text-xs font-bold text-slate-300">
+                                <i class="fas fa-music text-pink-500" id="musicIcon"></i>
+                                Romantic Lo-Fi
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Voice Toggle -->
                     <button id="voiceToggle" class="w-full py-3 px-4 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between group hover:bg-white/10 transition-all" onclick="window.chatApp.toggleVoice()">
                         <span class="flex items-center gap-3">
@@ -2118,6 +2139,25 @@
                     window.vrmAPI.loadScene(sceneId);
                     document.querySelectorAll('.scene-btn').forEach(btn => btn.classList.remove('active'));
                     document.getElementById(`scene-${sceneId}`)?.classList.add('active');
+                }
+            }
+
+            toggleMusic() {
+                if (!this.bgMusic) {
+                    this.bgMusic = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'); // Placeholder for actual lo-fi
+                    this.bgMusic.loop = true;
+                    this.bgMusic.volume = 0.2;
+                }
+
+                const icon = document.getElementById('musicIcon');
+                if (this.bgMusic.paused) {
+                    this.bgMusic.play();
+                    icon.classList.add('fa-spin-slow');
+                    document.getElementById('musicToggle').classList.add('bg-pink-500/10');
+                } else {
+                    this.bgMusic.pause();
+                    icon.classList.remove('fa-spin-slow');
+                    document.getElementById('musicToggle').classList.remove('bg-pink-500/10');
                 }
             }
 

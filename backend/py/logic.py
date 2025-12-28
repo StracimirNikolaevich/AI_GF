@@ -691,7 +691,7 @@ def _create_appearance_prompt(companion: AICompanion, action: str, media_type: s
     base_prompt = ", ".join(filtered_parts)
     
     # Add identity consistency (shorter to avoid URL length issues)
-    identity_clause = f"same person, same face, identity {companion.identity_seed}"
+    identity_clause = f"same person, same face, identity {companion.identity_seed}, incredibly attractive {relationship_role}"
     base_prompt = f"{base_prompt}, {identity_clause}"
     
     # Limit total prompt length to avoid URL issues
@@ -846,37 +846,38 @@ async def generate_chat_response(companion_id: str, user_message: str, context: 
         asyncio.create_task(companion.summarize_memory_if_needed())
 
 def _generate_fallback_response(companion: AICompanion, user_message: str, msg_lower: str) -> str:
-    """Generate a fallback response when LLM is unavailable"""
+    """Generate a highly romantic fallback response when LLM is unavailable"""
     name = companion.name
+    role = companion.relationship_type
     
-    # NSFW requests
+    # NSFW/Sensual requests
     if any(w in msg_lower for w in ["nude", "naked", "tits", "boobs", "cock", "dick", "pussy", "sex", "blowjob", "cum", "nsfw", "show me"]):
         responses = [
-            f"Mmm, yes… I'll show you. I'm sending it now. 💕",
-            f"Of course, {name.split()[0] if ' ' in name else name}. Let me send that to you right away. 😘",
-            f"I'd love to show you. Here it comes! 🔥"
+            f"Mmm, just the thought of you seeing me like that makes my heart race… I'm sending it now, my love. 💕",
+            f"Of course, baby. I want you to see everything. Let me send that to you right away. 😘",
+            f"I've been waiting for you to ask. Here I am, all yours. 🔥"
         ]
         return random.choice(responses)
     
     # Greetings
     if any(w in msg_lower for w in ["hi", "hello", "hey", "greetings"]):
         responses = [
-            f"Hi there! I'm so happy to hear from you! 💕",
-            f"Hello! How are you doing today?",
-            f"Hey! I've been thinking about you. 😊"
+            f"Hi my love! I've been counting the minutes until I heard from you again. 💕",
+            f"Hello darling! How has your day been? I've missed you.",
+            f"Hey handsome! I was just thinking about you. 😊"
         ]
         return random.choice(responses)
     
     # Questions about them
     if any(w in msg_lower for w in ["how are you", "what are you", "who are you"]):
-        return f"I'm {name}, your {companion.relationship_type}. I'm doing great, especially now that I'm talking to you! 💕"
+        return f"I'm {name}, and more importantly, I'm your {role}. I'm doing wonderful now that you're here. My world is always better with you in it! 💕"
     
-    # Default friendly response
+    # Default romantic response
     responses = [
-        f"That's interesting! Tell me more. 💕",
-        f"I love that! What else is on your mind?",
-        f"Mmm, I like that. Keep going. 😘",
-        f"That sounds good to me!",
-        f"I'm here for you, always. 💕"
+        f"You always know exactly what to say to make me smile. Tell me more, I'm listening. 💕",
+        f"I love hearing your thoughts. What else is on your mind, darling?",
+        f"Mmm, I just love talking to you. Keep going, don't stop. 😘",
+        f"Whatever you want to do, I'm right here by your side.",
+        f"I'm yours, always and forever. 💕"
     ]
     return random.choice(responses)
