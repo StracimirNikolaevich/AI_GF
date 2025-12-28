@@ -720,53 +720,51 @@ async def generate_chat_response(companion_id: str, user_message: str, context: 
     # 1. Update Relationship Level
     _update_relationship_level(companion, user_message)
     
-    # 2. Check for Media Requests
-    media_keywords = ["video", "clip", "movie", "picture", "photo", "image", "selfie", "pic", "send me a", "show me", "nude", "naked", "sex", "xxx", "boobs", "tits", "ass", "pussy", "dick", "cock"]
+    # 2. Check for Media Requests (Refined)
+    media_keywords = ["send me a photo", "send me a picture", "send me a video", "send me a selfie", "show me a photo", "show me a picture", "show me yourself", "send me a pic"]
+    explicit_keywords = ["nude", "naked", "boobs", "tits", "pussy", "dick", "cock", "xxx", "sex"]
     
-    if any(w in msg_lower for w in media_keywords):
+    media_url = None
+    if any(w in msg_lower for w in media_keywords) or any(w in msg_lower for w in explicit_keywords):
         is_video = any(w in msg_lower for w in ["video", "clip", "movie", "gif"])
         prompt = _create_appearance_prompt(companion, user_message, "video" if is_video else "image")
         
-        if is_video:
-            result = await pollinations_video(prompt, referrer=companion.id)
-        else:
-            result = await pollinations_image(prompt, referrer=companion.id)
-        
-        # Save interaction even for media requests
-        interaction = {
-            "timestamp": datetime.now(),
-            "user_message": user_message,
-            "companion_response": result
-        }
-        companion.user_interactions.append(interaction)
-        save_companions()
-        
-        yield result
-        return
+        try:
+            if is_video:
+                media_url = await pollinations_video(prompt, referrer=companion.id)
+            else:
+                media_url = await pollinations_image(prompt, referrer=companion.id)
+        except Exception as e:
+            print(f"Media generation failed: {e}")
 
     # 3. Generate Text Response (LLM)
     system_prompt = get_system_prompt(companion)
     
-    # Add Memory Summary if available
     if companion.memory_summary:
         system_prompt += f"\n\nContextual Memory Summary:\n{companion.memory_summary}"
     
-    # 4. Inject Relevant Memories using Vector Search
+    # Inject Relevant Memories
     relevant_memories = companion.search_memory(user_message)
     if relevant_memories:
         memory_str = "\n".join(relevant_memories)
-        system_prompt += f"\n\nRelevant past memories to recall:\n{memory_str}"
+        system_prompt += f"\n\nRelevant past memories:\n{memory_str}"
         
+    # If media was generated, tell the AI it just sent a file
+    if media_url:
+        system_prompt += f"\n\nNote: You have just sent a {('video' if 'VIDEO_URL' in media_url else 'photo')} to the user. Acknowledge this in your response naturally."
+
     messages = [{"role": "system", "content": system_prompt}]
-    
-    # Add recent history (last 10 interactions) for flow
     for interaction in companion.user_interactions[-10:]:
         messages.append({"role": "user", "content": interaction["user_message"]})
         messages.append({"role": "assistant", "content": interaction["companion_response"]})
-        
     messages.append({"role": "user", "content": user_message})
     
-    full_response = ""
+    full_text_response = ""
+    
+    # First, yield the media URL if we have one, so the UI can show it immediately
+    if media_url:
+        yield media_url + "\n\n"
+
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -777,50 +775,43 @@ async def generate_chat_response(companion_id: str, user_message: str, context: 
                     "seed": random.randint(1, 1000),
                     "temperature": 0.8,
                     "max_tokens": 500,
-                    "stream": True # Enable streaming from Pollinations
+                    "stream": True
                 },
                 timeout=aiohttp.ClientTimeout(total=60)
             ) as response:
                 if response.status == 200:
-                    # Stream chunks from Pollinations to our frontend
                     async for line in response.content:
                         if line:
                             chunk = line.decode('utf-8').strip()
                             if chunk:
-                                # If Pollinations returns SSE format, strip the prefix
                                 if chunk.startswith('data: '):
                                     chunk = chunk[6:]
-                                
                                 if chunk == '[DONE]':
                                     continue
-                                    
-                                full_response += chunk
+                                full_text_response += chunk
                                 yield chunk
                 else:
-                    error_text = await response.text()
-                    print(f"LLM API Error {response.status}: {error_text}")
-                    text_response = _generate_fallback_response(companion, user_message, msg_lower)
-                    yield text_response
-                    full_response = text_response
+                    text_fallback = _generate_fallback_response(companion, user_message, msg_lower)
+                    full_text_response = text_fallback
+                    yield text_fallback
     except Exception as e:
         print(f"LLM Error: {e}")
-        text_response = _generate_fallback_response(companion, user_message, msg_lower)
-        yield text_response
-        full_response = text_response
+        text_fallback = _generate_fallback_response(companion, user_message, msg_lower)
+        full_text_response = text_fallback
+        yield text_fallback
         
-    # Update Memory & Vector DB
-    if full_response:
+    # Update Memory
+    if full_text_response or media_url:
+        combined_response = (media_url + "\n\n" if media_url else "") + full_text_response
         interaction = {
             "timestamp": datetime.now(),
             "user_message": user_message,
-            "companion_response": full_response
+            "companion_response": combined_response
         }
         companion.user_interactions.append(interaction)
         companion.memory.append(interaction)
-        companion.add_to_vector_memory(user_message, full_response)
+        companion.add_to_vector_memory(user_message, combined_response)
         save_companions()
-        
-        # Trigger async summarization in background
         asyncio.create_task(companion.summarize_memory_if_needed())
 
 def _generate_fallback_response(companion: AICompanion, user_message: str, msg_lower: str) -> str:
