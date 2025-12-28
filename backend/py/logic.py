@@ -720,22 +720,32 @@ async def generate_chat_response(companion_id: str, user_message: str, context: 
     # 1. Update Relationship Level
     _update_relationship_level(companion, user_message)
     
-    # 2. Check for Media Requests
-    media_keywords = ["video", "clip", "movie", "picture", "photo", "image", "selfie", "pic", "send me a", "show me", "nude", "naked", "sex", "xxx", "boobs", "tits", "ass", "pussy", "dick", "cock"]
+    # 2. Check for Media Requests (Improved Detection)
+    request_triggers = ["send", "show", "give", "want", "need", "can i see", "take a"]
+    media_keywords = ["video", "clip", "movie", "picture", "photo", "image", "selfie", "pic", "nude", "naked", "sex", "xxx", "boobs", "tits", "ass", "pussy", "dick", "cock"]
     
     media_result = None
-    if any(w in msg_lower for w in media_keywords):
+    is_media_request = any(t in msg_lower for t in request_triggers) and any(w in msg_lower for w in media_keywords)
+    
+    # Also trigger for very specific keywords even without "show/send"
+    if not is_media_request:
+        is_media_request = any(w == msg_lower.strip() for w in ["selfie", "pic", "photo", "nudes"])
+
+    if is_media_request:
         is_video = any(w in msg_lower for w in ["video", "clip", "movie", "gif"])
         prompt = _create_appearance_prompt(companion, user_message, "video" if is_video else "image")
         
-        if is_video:
-            media_result = await pollinations_video(prompt, referrer=companion.id)
-        else:
-            media_result = await pollinations_image(prompt, referrer=companion.id)
-        
-        # Yield the media result immediately so it starts loading in the UI
-        if media_result:
-            yield media_result + "\n\n"
+        try:
+            if is_video:
+                media_result = await pollinations_video(prompt, referrer=companion.id)
+            else:
+                media_result = await pollinations_image(prompt, referrer=companion.id)
+            
+            # Yield the media result immediately
+            if media_result:
+                yield media_result + "\n\n"
+        except Exception as e:
+            print(f"Media generation error: {e}")
 
     # 3. Generate Text Response (LLM)
     system_prompt = get_system_prompt(companion)
@@ -743,7 +753,7 @@ async def generate_chat_response(companion_id: str, user_message: str, context: 
     # If we sent media, tell the LLM so it can react to it
     if media_result:
         media_type = "video" if "VIDEO_URL" in media_result else "picture"
-        system_prompt += f"\n\nContext: You just sent the user a {media_type} as they requested. Acknowledge this in your response and continue the roleplay."
+        system_prompt += f"\n\nCRITICAL CONTEXT: You just sent the user a {media_type} as they requested. In your response, YOU MUST describe what you are doing in the {media_type} and ask them if they like it. Do NOT just send the image, YOU MUST TALK BACK to the user."
     
     # Add Memory Summary if available
     if companion.memory_summary:
@@ -771,29 +781,39 @@ async def generate_chat_response(companion_id: str, user_message: str, context: 
                 'https://text.pollinations.ai/',
                 json={
                     "messages": messages, 
-                    "model": "mistral", 
-                    "seed": random.randint(1, 1000),
-                    "temperature": 0.8,
-                    "max_tokens": 500,
-                    "stream": True # Enable streaming from Pollinations
+                    "model": "mistral-large", 
+                    "seed": random.randint(1, 100000),
+                    "temperature": 0.85,
+                    "max_tokens": 800,
+                    "stream": True 
                 },
-                timeout=aiohttp.ClientTimeout(total=60)
+                timeout=aiohttp.ClientTimeout(total=90)
             ) as response:
                 if response.status == 200:
-                    # Stream chunks from Pollinations to our frontend
                     async for line in response.content:
-                        if line:
-                            chunk = line.decode('utf-8').strip()
-                            if chunk:
-                                # If Pollinations returns SSE format, strip the prefix
-                                if chunk.startswith('data: '):
-                                    chunk = chunk[6:]
-                                
-                                if chunk == '[DONE]':
-                                    continue
-                                    
-                                full_response += chunk
-                                yield chunk
+                        if not line: continue
+                        
+                        chunk = line.decode('utf-8')
+                        # Pollinations handling
+                        if chunk.startswith('data: '):
+                            parts = chunk.split('\n')
+                            for p in parts:
+                                if p.startswith('data: '):
+                                    data = p[6:].strip()
+                                    if data == '[DONE]': continue
+                                    if data:
+                                        try:
+                                            js = json.loads(data)
+                                            content = js.get('choices', [{}])[0].get('delta', {}).get('content', '')
+                                            if content:
+                                                full_response += content
+                                                yield content
+                                        except:
+                                            full_response += data
+                                            yield data
+                        else:
+                            full_response += chunk
+                            yield chunk
                 else:
                     error_text = await response.text()
                     print(f"LLM API Error {response.status}: {error_text}")
