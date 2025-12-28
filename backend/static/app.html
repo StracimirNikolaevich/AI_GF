@@ -2159,7 +2159,7 @@
                 this.showTypingIndicator();
                 
                 try {
-                    const response = await fetch('/api/companion/chat', {
+                    const response = await fetch('/api/companion/chat/stream', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -2171,57 +2171,93 @@
                     
                     this.hideTypingIndicator();
                     
-                    if (response.ok) {
-                        const data = await response.json();
-                        const isMedia = data.response.includes('IMAGE_URL:') || data.response.includes('VIDEO_URL:');
-                        
-                        // Detect expression from text
-                        if (window.vrmAPI) {
-                            const text = data.response.toLowerCase();
-                            if (text.includes('😊') || text.includes('happy') || text.includes('love') || text.includes('💕')) {
-                                window.vrmAPI.setExpression('happy');
-                            } else if (text.includes('😢') || text.includes('sad') || text.includes('sorry')) {
-                                window.vrmAPI.setExpression('sad');
-                            } else if (text.includes('😠') || text.includes('angry')) {
-                                window.vrmAPI.setExpression('angry');
-                            } else if (text.includes('😮') || text.includes('wow') || text.includes('surprise')) {
-                                window.vrmAPI.setExpression('surprised');
-                            } else {
-                                window.vrmAPI.setExpression('neutral');
-                            }
-                        }
-
-                        if (isMedia) {
-                            this.addMessage('companion', data.response, true, true); // true = isMedia
-                        } else {
-                            this.addMessage('companion', data.response);
-                            // Play voice for text responses
-                            this.playTTS(data.response);
-                        }
-                        this.saveMessageHistory();
-                        
-                        // Refresh data to show relationship level updates
-                        await this.loadCompanionData();
-                    } else {
+                    if (!response.ok) {
                         const errorText = await response.text();
                         console.error('Response error:', response.status, errorText);
-                        
-                        // Retry logic for server errors
-                        if (response.status >= 500 && retryCount < 2) {
-                            setTimeout(() => {
-                                this.sendMessage(retryCount + 1);
-                            }, 1000 * (retryCount + 1));
-                            return;
-                        }
-                        
-                        this.addMessage('companion', "I'm sorry, I'm having trouble responding right now. Please try again in a moment.");
-                        this.saveMessageHistory();
+                        throw new Error(`Server error: ${response.status}`);
                     }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let fullText = '';
+                    let messageElement = null;
+                    let isMedia = false;
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        const chunk = decoder.decode(value, { stream: true });
+                        const lines = chunk.split('\n');
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const data = line.slice(6);
+                                if (data === '[DONE]') continue;
+                                
+                                fullText += data;
+                                
+                                // Check if this looks like media
+                                if (fullText.includes('IMAGE_URL:') || fullText.includes('VIDEO_URL:')) {
+                                    isMedia = true;
+                                }
+
+                                if (!messageElement) {
+                                    // Create the initial message bubble
+                                    messageElement = this.addMessage('companion', isMedia ? fullText : '', true, isMedia);
+                                } else {
+                                    // Update existing bubble
+                                    const contentDiv = messageElement.querySelector('.message-content');
+                                    if (contentDiv) {
+                                        if (isMedia) {
+                                            contentDiv.innerHTML = this.parseMediaContent(fullText);
+                                        } else {
+                                            contentDiv.innerHTML = this.md ? this.md.render(fullText) : fullText.replace(/\n/g, '<br>');
+                                        }
+                                        
+                                        // Scroll to bottom
+                                        const container = document.getElementById('chatMessages');
+                                        if (container) {
+                                            container.scrollTop = container.scrollHeight;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Expression detection on the full text
+                    if (window.vrmAPI) {
+                        const text = fullText.toLowerCase();
+                        if (text.includes('😊') || text.includes('happy') || text.includes('love') || text.includes('💕')) {
+                            window.vrmAPI.setExpression('happy');
+                        } else if (text.includes('😢') || text.includes('sad') || text.includes('sorry')) {
+                            window.vrmAPI.setExpression('sad');
+                        } else if (text.includes('😠') || text.includes('angry')) {
+                            window.vrmAPI.setExpression('angry');
+                        } else if (text.includes('😮') || text.includes('wow') || text.includes('surprise')) {
+                            window.vrmAPI.setExpression('surprised');
+                        } else {
+                            window.vrmAPI.setExpression('neutral');
+                        }
+                    }
+
+                    // Voice and final state
+                    if (!isMedia && fullText) {
+                        this.playTTS(fullText);
+                    }
+                    
+                    // Update history with full text
+                    this.messages.push({ sender: 'companion', content: fullText });
+                    this.saveMessageHistory();
+                    
+                    // Refresh data to show relationship level updates
+                    await this.loadCompanionData();
+
                 } catch (error) {
                     this.hideTypingIndicator();
                     console.error('Chat error:', error);
                     
-                    // Retry logic for network errors
                     if (retryCount < 2) {
                         setTimeout(() => {
                             this.sendMessage(retryCount + 1);
@@ -2230,7 +2266,6 @@
                     }
                     
                     this.addMessage('companion', "I'm having connection issues. Please check your internet and try again.");
-                    this.saveMessageHistory();
                 } finally {
                     this.isTyping = false;
                 }
@@ -2249,10 +2284,8 @@
                 let htmlContent = '';
                 
                 if (isMedia || content.includes('IMAGE_URL:') || content.includes('VIDEO_URL:')) {
-                    // Custom parsing for media
                     htmlContent = this.parseMediaContent(content);
                 } else {
-                    // Markdown parsing for text
                     if (this.md) {
                         htmlContent = this.md.render(content);
                     } else {
@@ -2266,15 +2299,17 @@
                 
                 container.appendChild(msgDiv);
                 
-                // Use requestAnimationFrame for smoother scroll
                 requestAnimationFrame(() => {
                     container.scrollTop = container.scrollHeight;
                 });
                 
-                // Only add to history if it's not already there (for loadMessageHistory)
-                if (animate) {
+                // Only add to history if it's not companion (as companion is added after streaming)
+                // or if it's a non-animated load
+                if (sender === 'user' || !animate) {
                     this.messages.push({ sender, content });
                 }
+                
+                return msgDiv;
             }
 
             parseMediaContent(content) {

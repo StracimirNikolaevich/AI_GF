@@ -103,24 +103,46 @@ async def create_companion(request: CompanionCreateRequest):
 
 @app.post("/api/companion/chat")
 async def companion_chat(request: ChatRequest):
-    """Chat with companion"""
+    """Chat with companion (non-streaming fallback)"""
     try:
-        response_text = await generate_chat_response(
+        full_response = ""
+        async for chunk in generate_chat_response(
             request.companionId, 
             request.message, 
             request.context
-        )
+        ):
+            full_response += chunk
         
         companion = COMPANIONS.get(request.companionId)
         
         return ChatResponse(
-            response=response_text,
+            response=full_response,
             companionId=request.companionId,
             timestamp=datetime.now().isoformat(),
             mood=companion.mood if companion else "neutral"
         )
     except Exception as e:
         print(f"Chat error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/companion/chat/stream")
+async def companion_chat_stream(request: ChatRequest):
+    """Stream chat with companion using SSE"""
+    try:
+        async def stream_generator():
+            async for chunk in generate_chat_response(
+                request.companionId, 
+                request.message, 
+                request.context
+            ):
+                if chunk:
+                    # SSE format: "data: chunk\n\n"
+                    yield f"data: {chunk}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(stream_generator(), media_type="text/event-stream")
+    except Exception as e:
+        print(f"Streaming chat error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/companions")
