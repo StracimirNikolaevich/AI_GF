@@ -3765,4 +3765,49 @@ function getPrevModelInfo() {
     return allModels[prevIndex];
 }
 
+// Global API for the AI Partner app
+window.vrmAPI = {
+    setExpression: (name) => {
+        if (currentVrm && currentVrm.expressionManager) {
+            currentVrm.expressionManager.resetValues();
+            if (['happy', 'angry', 'sad', 'relaxed', 'surprised', 'neutral'].includes(name)) {
+                currentVrm.expressionManager.setValue(name, 1.0);
+            }
+        }
+    },
+    loadModel: async (modelId) => {
+        // This would require a significant update to vrm.js to re-initialize
+        // For now, we update local storage and reload if necessary
+        // Or we can trigger the existing load model logic if it exists
+        const config = await fetchVRMConfig();
+        config.selectedModelId = modelId;
+        // In a real app, you'd save this to the server
+        window.location.reload(); 
+    },
+    loadScene: async (sceneId) => {
+        const config = await fetchVRMConfig();
+        config.selectedGaussSceneId = sceneId;
+        await loadGaussScene();
+    },
+    speak: (isSpeaking) => {
+        if (!currentVrm || !currentVrm.expressionManager) return;
+        
+        if (isSpeaking) {
+            // Start simple procedural lip-sync
+            if (window.lipSyncInterval) clearInterval(window.lipSyncInterval);
+            window.lipSyncInterval = setInterval(() => {
+                const mouthOpen = 0.2 + Math.random() * 0.5;
+                currentVrm.expressionManager.setValue('aa', mouthOpen);
+            }, 100);
+        } else {
+            // Stop lip-sync
+            if (window.lipSyncInterval) {
+                clearInterval(window.lipSyncInterval);
+                window.lipSyncInterval = null;
+            }
+            currentVrm.expressionManager.setValue('aa', 0);
+        }
+    }
+};
+
 animate();

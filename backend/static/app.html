@@ -1,0 +1,2543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luvr AI - Create & Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/markdown-it.min.js"></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.178.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.178.0/examples/jsm/",
+        "@pixiv/three-vrm": "https://unpkg.com/@pixiv/three-vrm@3.4.2/lib/three-vrm.module.js",
+        "@pixiv/three-vrm-animation": "https://unpkg.com/@pixiv/three-vrm-animation@3.4.2/lib/three-vrm-animation.module.js",
+        "@sparkjsdev/spark": "https://unpkg.com/@sparkjsdev/spark@0.1.9/dist/index.esm.js"
+      }
+    }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 50%, #0a0a1a 100%);
+            background-attachment: fixed;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -2;
+        }
+
+        /* View Management */
+        .view-section {
+            width: 100%;
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
+            transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 1;
+            transform: translateX(0) scale(1);
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .view-hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(30px) scale(0.98);
+            position: absolute;
+            z-index: 0;
+            display: none;
+        }
+
+        /* Companion List in Sidebar */
+        .companion-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 8px;
+            border: 1px solid transparent;
+        }
+
+        .companion-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .companion-item.active {
+            background: rgba(236, 72, 153, 0.1);
+            border-color: rgba(236, 72, 153, 0.3);
+        }
+
+        .companion-item-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            overflow: hidden;
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .companion-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .companion-item-name {
+            font-weight: 600;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .companion-item-meta {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Filter Tags - Enhanced Luvr.ai style */
+        .filter-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 18px;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(10px);
+            border: 1.5px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .filter-tag::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .filter-tag:hover::before {
+            left: 100%;
+        }
+
+        .filter-tag:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(236, 72, 153, 0.4);
+            color: #ffffff;
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 6px 20px rgba(236, 72, 153, 0.2);
+        }
+
+        .filter-tag.active {
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            border-color: #ec4899;
+            color: #ffffff;
+            box-shadow: 0 6px 24px rgba(236, 72, 153, 0.4), 0 0 0 2px rgba(236, 72, 153, 0.2);
+            transform: translateY(-2px) scale(1.05);
+        }
+
+        /* Selection Cards - Enhanced */
+        .selection-card {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            padding: 24px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .selection-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .selection-card::after {
+            content: '✓';
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .selection-card:hover {
+            border-color: rgba(236, 72, 153, 0.6);
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0 12px 32px rgba(236, 72, 153, 0.25);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .selection-card:hover::before {
+            opacity: 0.5;
+        }
+
+        .selection-card.selected {
+            border-color: #ec4899;
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+            box-shadow: 
+                0 0 32px rgba(236, 72, 153, 0.5),
+                0 0 0 3px rgba(236, 72, 153, 0.2),
+                inset 0 0 20px rgba(236, 72, 153, 0.1);
+            transform: translateY(-4px) scale(1.03);
+        }
+
+        .selection-card.selected::before {
+            opacity: 1;
+        }
+
+        .selection-card.selected::after {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .chat-container {
+            display: flex;
+            height: 100vh;
+            background: transparent;
+            position: relative;
+        }
+
+        .sidebar {
+            width: 320px;
+            background: rgba(15, 15, 17, 0.6);
+            backdrop-filter: blur(15px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 50;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                transform: translateX(-100%);
+            }
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            .message {
+                max-width: 90% !important;
+            }
+        }
+
+        /* Mobile Header */
+        .mobile-header {
+            display: none;
+            padding: 12px 20px;
+            background: rgba(15, 15, 17, 0.6);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            align-items: center;
+            justify-content: space-between;
+            z-index: 40;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: flex;
+            }
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: transparent;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            max-width: 80%;
+            animation: messageSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Lightbox Modal */
+        #lightbox {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            padding: 40px;
+            align-items: center;
+            justify-content: center;
+            cursor: zoom-out;
+        }
+
+        #lightbox img, #lightbox video {
+            max-width: 100%;
+            max-height: 100%;
+            border-radius: 12px;
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+        }
+
+        .close-lightbox {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .close-lightbox:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-content {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 12px 16px;
+            word-wrap: break-word;
+            line-height: 1.5;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            font-size: 14px;
+        }
+
+        .message-content p {
+            margin-bottom: 8px;
+        }
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message.user .message-content {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.25) 0%, rgba(139, 92, 246, 0.25) 100%);
+            border-color: rgba(236, 72, 153, 0.4);
+            box-shadow: 0 4px 16px rgba(236, 72, 153, 0.2);
+        }
+
+        /* Image and Video Styles */
+        .message-image-container {
+            margin: 12px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 100%;
+        }
+
+        .message-image {
+            width: 100%;
+            max-width: 512px;
+            height: auto;
+            border-radius: 12px;
+            display: block;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .message-image:hover {
+            transform: scale(1.02);
+        }
+
+        .message-video-container {
+            margin: 12px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 100%;
+        }
+
+        .message-video {
+            width: 100%;
+            max-width: 512px;
+            height: auto;
+            border-radius: 12px;
+            display: block;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            max-width: 75px;
+            animation: messageSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(236, 72, 153, 0.8);
+            animation: typingDot 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+
+        @keyframes typingDot {
+            0%, 80%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            40% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+        }
+
+        /* Media Loading State */
+        .media-loading {
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+        }
+
+        .media-loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(236, 72, 153, 0.2);
+            border-top-color: rgba(236, 72, 153, 0.8);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .media-error {
+            padding: 20px;
+            text-align: center;
+            color: rgba(255, 100, 100, 0.9);
+            background: rgba(255, 100, 100, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 100, 100, 0.3);
+        }
+
+        .retry-button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: rgba(236, 72, 153, 0.2);
+            border: 1px solid rgba(236, 72, 153, 0.4);
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .retry-button:hover {
+            background: rgba(236, 72, 153, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* Explore Preview Slideshow */
+        .preview-slideshow {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .preview-slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            object-fit: cover;
+        }
+
+        .preview-slide.active {
+            opacity: 1;
+            z-index: 1;
+        }
+
+        .preview-slide.loading {
+            background: linear-gradient(90deg, rgba(236, 72, 153, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .preview-card:hover {
+            border-color: rgba(236, 72, 153, 0.5);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(236, 72, 153, 0.2);
+        }
+
+        .preview-card:hover .preview-slideshow {
+            transform: scale(1.05);
+        }
+
+        .input-area {
+            padding: 24px;
+            background: rgba(15, 15, 17, 0.6);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .message-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.12);
+            border-radius: 28px;
+            padding: 14px 24px;
+            color: white;
+            font-size: 15px;
+            resize: none;
+            min-height: 56px;
+            max-height: 120px;
+            transition: all 0.3s ease;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #ec4899;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+        }
+
+        .send-button {
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            border: none;
+            border-radius: 50%;
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-left: 12px;
+            box-shadow: 0 4px 16px rgba(236, 72, 153, 0.3);
+        }
+
+        .send-button:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 6px 24px rgba(236, 72, 153, 0.5);
+        }
+
+        .send-button:active {
+            transform: scale(0.95);
+        }
+
+        .media-button {
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-left: 8px;
+        }
+
+        .media-button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(236, 72, 153, 0.5);
+            transform: scale(1.1);
+            box-shadow: 0 4px 16px rgba(236, 72, 153, 0.3);
+        }
+
+        .media-button:active {
+            transform: scale(0.95);
+        }
+
+        .media-button.photo {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+            border-color: rgba(236, 72, 153, 0.4);
+        }
+
+        .media-button.video {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%);
+            border-color: rgba(139, 92, 246, 0.4);
+        }
+
+        /* Scrollbar - Enhanced */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.5) 0%, rgba(139, 92, 246, 0.5) 100%);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.7) 0%, rgba(139, 92, 246, 0.7) 100%);
+            background-clip: padding-box;
+        }
+
+        /* Progress Indicator */
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 32px;
+            padding: 0 20px;
+        }
+
+        .step-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .step-dot.active {
+            background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+            transform: scale(1.3);
+            box-shadow: 0 0 12px rgba(236, 72, 153, 0.5);
+        }
+
+        .step-dot.completed::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 8px;
+            color: white;
+        }
+
+        /* Header Enhancement */
+        header {
+            background: rgba(10, 10, 10, 0.8) !important;
+            backdrop-filter: blur(20px) !important;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3) !important;
+        }
+
+        /* Form Container Enhancement */
+        .form-container {
+            background: rgba(255, 255, 255, 0.04) !important;
+            backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+        }
+
+        /* Button Enhancements */
+        button {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Input Enhancements */
+        input, select {
+            transition: all 0.3s ease;
+        }
+
+        .left-1 { left: 0.25rem; }
+        .right-1 { left: calc(100% - 1rem); }
+
+        input:focus, select:focus {
+            transform: translateY(-2px);
+        }
+
+        /* Step Content Animation */
+        .step-content {
+            animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- EXPLORE VIEW -->
+    <div id="explore-view" class="view-section view-hidden">
+        <header class="w-full px-6 py-4 border-b border-white/10 bg-black/50 backdrop-blur-lg sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-pink-500/30">
+                        <i class="fas fa-heart text-white text-lg"></i>
+                    </div>
+                    <span class="text-3xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">Luvr<span class="text-pink-500">.ai</span></span>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="showView('create')" class="px-6 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                        Create Character
+                    </button>
+                    <button class="px-8 py-3 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 font-semibold hover:opacity-90 transition-all hover:scale-105 shadow-lg shadow-pink-500/30">
+                        Sign Up
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-6 py-8">
+            <div class="mb-8">
+                <h1 class="text-4xl font-bold mb-4 bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">Explore</h1>
+                <p class="text-gray-400 mb-6">Filter and discover characters</p>
+                
+                <!-- Filter Tags -->
+                <div class="mb-8">
+                    <div class="flex flex-wrap gap-3">
+                        <span class="filter-tag" data-filter="gender" data-value="female">👩 Female</span>
+                        <span class="filter-tag" data-filter="gender" data-value="male">👨 Male</span>
+                        <span class="filter-tag" data-filter="style" data-value="realistic">🎭 Realistic</span>
+                        <span class="filter-tag" data-filter="style" data-value="anime">🎨 Anime</span>
+                        <span class="filter-tag" data-filter="body" data-value="busty">💋 Busty</span>
+                        <span class="filter-tag" data-filter="age" data-value="18-21">👧 18-21</span>
+                        <span class="filter-tag" data-filter="age" data-value="22-30">👩‍💼 22-30</span>
+                        <span class="filter-tag" data-filter="age" data-value="30-35">👩‍💼 30-35</span>
+                        <span class="filter-tag" data-filter="age" data-value="35+">👩‍🦳 35+</span>
+                        <span class="filter-tag" data-filter="personality" data-value="dominant">👑 Dominant</span>
+                        <span class="filter-tag" data-filter="personality" data-value="submissive">🙇‍♀️ Submissive</span>
+                        <span class="filter-tag" data-filter="personality" data-value="outgoing">💃 Outgoing</span>
+                        <span class="filter-tag" data-filter="personality" data-value="softspoken">🤫 Softspoken</span>
+                        <span class="filter-tag" data-filter="theme" data-value="romance">💕 Romance</span>
+                        <span class="filter-tag" data-filter="theme" data-value="roleplay">🎭 Roleplay</span>
+                        <span class="filter-tag" data-filter="theme" data-value="fantasy">✨ Fantasy</span>
+                        <span class="filter-tag" data-filter="theme" data-value="action">⚡ Action</span>
+                        <span class="filter-tag" data-filter="theme" data-value="comedy">😂 Comedy</span>
+                        <span class="filter-tag" data-filter="body" data-value="athletic">🏃‍♀️ Athletic</span>
+                        <span class="filter-tag" data-filter="body" data-value="petite">👗 Petite</span>
+                        <span class="filter-tag" data-filter="orientation" data-value="bisexual">🌈 Bisexual</span>
+                        <span class="filter-tag" data-filter="orientation" data-value="heterosexual">👫 Heterosexual</span>
+                        <span class="filter-tag" data-filter="orientation" data-value="pansexual">💖 Pansexual</span>
+                    </div>
+                </div>
+                
+                <!-- Character Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6" id="exploreGrid">
+                    <!-- Preview cards will be generated here -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- CREATION VIEW -->
+    <div id="creation-view" class="view-section">
+        <!-- Header -->
+        <header class="w-full px-6 py-4 border-b border-white/10 bg-black/50 backdrop-blur-lg sticky top-0 z-50">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-pink-500/30">
+                        <i class="fas fa-heart text-white text-lg"></i>
+                    </div>
+                    <span class="text-3xl font-bold bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">Luvr<span class="text-pink-500">.ai</span></span>
+                </div>
+                <button class="px-8 py-3 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 font-semibold hover:opacity-90 transition-all hover:scale-105 shadow-lg shadow-pink-500/30">
+                    Sign Up
+                </button>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-6 py-8">
+            <!-- Create Character Section -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold">Create Character</h2>
+                    <button class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-sm">
+                        View All
+                    </button>
+                </div>
+
+                <!-- Step Progress Indicator -->
+                <div class="step-indicator mb-10">
+                    <div class="step-dot active" id="stepDot1"></div>
+                    <div class="step-dot" id="stepDot2"></div>
+                    <div class="step-dot" id="stepDot3"></div>
+                    <div class="step-dot" id="stepDot4"></div>
+                </div>
+
+                <!-- Character Creation Form -->
+                <div class="form-container bg-white/5 rounded-3xl p-6 md:p-10 border border-white/10 max-w-4xl mx-auto shadow-2xl">
+                    <!-- Step 1: Basic Info -->
+                    <div id="step1" class="step-content">
+                        <h3 class="text-xl font-semibold mb-6">Basic Information</h3>
+                        <div class="grid md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">Name</label>
+                                <input type="text" id="companionName" placeholder="Enter character name" 
+                                    class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-colors">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">Age Range</label>
+                                <select id="ageRange" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-colors">
+                                    <option value="18-21">18-21 (College)</option>
+                                    <option value="22-25">22-25 (Young Adult)</option>
+                                    <option value="26-30">26-30 (Mature)</option>
+                                    <option value="30-40">30-40 (MILF)</option>
+                                    <option value="40+">40+ (Mature)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-400 mb-3">Art Style</label>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="selection-card" data-option="style" data-value="realistic">
+                                    <div class="text-4xl mb-3 text-center">📸</div>
+                                    <h4 class="font-semibold text-center mb-1">Realistic</h4>
+                                    <p class="text-xs text-gray-400 text-center">Photorealistic</p>
+                                </div>
+                                <div class="selection-card" data-option="style" data-value="anime">
+                                    <div class="text-4xl mb-3 text-center">🎨</div>
+                                    <h4 class="font-semibold text-center mb-1">Anime</h4>
+                                    <p class="text-xs text-gray-400 text-center">2D Illustrated</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-400 mb-3">Gender</label>
+                            <div class="grid grid-cols-3 gap-4">
+                                <div class="selection-card selected" data-option="gender" data-value="female">
+                                    <div class="text-3xl mb-2 text-center">👩</div>
+                                    <h4 class="font-semibold text-center text-sm">Female</h4>
+                                </div>
+                                <div class="selection-card" data-option="gender" data-value="male">
+                                    <div class="text-3xl mb-2 text-center">👨</div>
+                                    <h4 class="font-semibold text-center text-sm">Male</h4>
+                                </div>
+                                <div class="selection-card" data-option="gender" data-value="futa">
+                                    <div class="text-3xl mb-2 text-center">🍆</div>
+                                    <h4 class="font-semibold text-center text-sm">Futa</h4>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-400 mb-3">Ethnicity</label>
+                            <div class="grid grid-cols-4 gap-3">
+                                <div class="selection-card" data-option="ethnicity" data-value="white">
+                                    <h4 class="font-semibold text-center text-sm">White</h4>
+                                </div>
+                                <div class="selection-card" data-option="ethnicity" data-value="latina">
+                                    <h4 class="font-semibold text-center text-sm">Latina</h4>
+                                </div>
+                                <div class="selection-card" data-option="ethnicity" data-value="asian">
+                                    <h4 class="font-semibold text-center text-sm">Asian</h4>
+                                </div>
+                                <div class="selection-card" data-option="ethnicity" data-value="black">
+                                    <h4 class="font-semibold text-center text-sm">Black</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Appearance -->
+                    <div id="step2" class="step-content hidden">
+                        <h3 class="text-xl font-semibold mb-6">Appearance</h3>
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-3">Hair Style</label>
+                                <div class="grid grid-cols-4 gap-3">
+                                    <div class="selection-card" data-option="hairType" data-value="long_straight">
+                                        <h4 class="font-semibold text-center text-sm">Long Straight</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="hairType" data-value="wavy">
+                                        <h4 class="font-semibold text-center text-sm">Wavy</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="hairType" data-value="curly">
+                                        <h4 class="font-semibold text-center text-sm">Curly</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="hairType" data-value="ponytail">
+                                        <h4 class="font-semibold text-center text-sm">Ponytail</h4>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-3">Hair Color</label>
+                                <div class="flex flex-wrap gap-3">
+                                    <div class="selection-card" data-option="hairColor" data-value="blonde">
+                                        <div class="w-6 h-6 rounded-full bg-yellow-300 mx-auto mb-1"></div>
+                                        <h4 class="font-semibold text-center text-xs">Blonde</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="hairColor" data-value="black">
+                                        <div class="w-6 h-6 rounded-full bg-black border border-white/20 mx-auto mb-1"></div>
+                                        <h4 class="font-semibold text-center text-xs">Black</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="hairColor" data-value="brown">
+                                        <div class="w-6 h-6 rounded-full bg-yellow-900 mx-auto mb-1"></div>
+                                        <h4 class="font-semibold text-center text-xs">Brown</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="hairColor" data-value="red">
+                                        <div class="w-6 h-6 rounded-full bg-red-500 mx-auto mb-1"></div>
+                                        <h4 class="font-semibold text-center text-xs">Red</h4>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Body Options - Dynamic based on gender -->
+                            <div id="appearanceOptions">
+                                <!-- Female Options (default) -->
+                                <div id="femaleOptions" class="grid md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-400 mb-3">Body Type</label>
+                                        <div class="space-y-2">
+                                            <div class="selection-card" data-option="bodyType" data-value="petite">
+                                                <h4 class="font-semibold text-sm">Petite</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="bodyType" data-value="athletic">
+                                                <h4 class="font-semibold text-sm">Athletic</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="bodyType" data-value="curvy">
+                                                <h4 class="font-semibold text-sm">Curvy</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="chestSection">
+                                        <label class="block text-sm font-medium text-gray-400 mb-3">Chest Size</label>
+                                        <div class="space-y-2">
+                                            <div class="selection-card" data-option="chestSize" data-value="small">
+                                                <h4 class="font-semibold text-sm">Small</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="chestSize" data-value="medium">
+                                                <h4 class="font-semibold text-sm">Medium</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="chestSize" data-value="large">
+                                                <h4 class="font-semibold text-sm">Large</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="assSection">
+                                        <label class="block text-sm font-medium text-gray-400 mb-3">Butt Size</label>
+                                        <div class="space-y-2">
+                                            <div class="selection-card" data-option="assSize" data-value="small">
+                                                <h4 class="font-semibold text-sm">Small</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="assSize" data-value="medium">
+                                                <h4 class="font-semibold text-sm">Medium</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="assSize" data-value="large">
+                                                <h4 class="font-semibold text-sm">Large</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Male Options -->
+                                <div id="maleOptions" class="grid md:grid-cols-2 gap-4 hidden">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-400 mb-3">Body Type</label>
+                                        <div class="space-y-2">
+                                            <div class="selection-card" data-option="bodyType" data-value="slim">
+                                                <h4 class="font-semibold text-sm">Slim</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="bodyType" data-value="athletic">
+                                                <h4 class="font-semibold text-sm">Athletic</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="bodyType" data-value="muscular">
+                                                <h4 class="font-semibold text-sm">Muscular</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="bodyType" data-value="chubby">
+                                                <h4 class="font-semibold text-sm">Chubby</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="cockSection">
+                                        <label class="block text-sm font-medium text-gray-400 mb-3">Cock Size</label>
+                                        <div class="space-y-2">
+                                            <div class="selection-card" data-option="cockSize" data-value="small">
+                                                <h4 class="font-semibold text-sm">Small</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="cockSize" data-value="medium">
+                                                <h4 class="font-semibold text-sm">Medium</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="cockSize" data-value="large">
+                                                <h4 class="font-semibold text-sm">Large</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="cockSize" data-value="huge">
+                                                <h4 class="font-semibold text-sm">Huge</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Futa Options -->
+                                <div id="futaOptions" class="grid md:grid-cols-2 gap-4 hidden">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-400 mb-3">Body Type</label>
+                                        <div class="space-y-2">
+                                            <div class="selection-card" data-option="bodyType" data-value="petite">
+                                                <h4 class="font-semibold text-sm">Petite</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="bodyType" data-value="athletic">
+                                                <h4 class="font-semibold text-sm">Athletic</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="bodyType" data-value="curvy">
+                                                <h4 class="font-semibold text-sm">Curvy</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="futaChestSection">
+                                        <label class="block text-sm font-medium text-gray-400 mb-3">Chest Size</label>
+                                        <div class="space-y-2">
+                                            <div class="selection-card" data-option="chestSize" data-value="small">
+                                                <h4 class="font-semibold text-sm">Small</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="chestSize" data-value="medium">
+                                                <h4 class="font-semibold text-sm">Medium</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="chestSize" data-value="large">
+                                                <h4 class="font-semibold text-sm">Large</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="futaAssSection">
+                                        <label class="block text-sm font-medium text-gray-400 mb-3">Butt Size</label>
+                                        <div class="space-y-2">
+                                            <div class="selection-card" data-option="assSize" data-value="small">
+                                                <h4 class="font-semibold text-sm">Small</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="assSize" data-value="medium">
+                                                <h4 class="font-semibold text-sm">Medium</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="assSize" data-value="large">
+                                                <h4 class="font-semibold text-sm">Large</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="futaCockSection">
+                                        <label class="block text-sm font-medium text-gray-400 mb-3">Cock Size</label>
+                                        <div class="space-y-2">
+                                            <div class="selection-card" data-option="cockSize" data-value="small">
+                                                <h4 class="font-semibold text-sm">Small</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="cockSize" data-value="medium">
+                                                <h4 class="font-semibold text-sm">Medium</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="cockSize" data-value="large">
+                                                <h4 class="font-semibold text-sm">Large</h4>
+                                            </div>
+                                            <div class="selection-card" data-option="cockSize" data-value="huge">
+                                                <h4 class="font-semibold text-sm">Huge</h4>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Outfit Selection -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-3">Starting Outfit</label>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div class="selection-card" data-option="outfit" data-value="casual">
+                                        <h4 class="font-semibold text-center text-sm">Casual</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="outfit" data-value="formal">
+                                        <h4 class="font-semibold text-center text-sm">Formal</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="outfit" data-value="bikini">
+                                        <h4 class="font-semibold text-center text-sm">Bikini</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="outfit" data-value="lingerie">
+                                        <h4 class="font-semibold text-center text-sm">Lingerie</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="outfit" data-value="nurse">
+                                        <h4 class="font-semibold text-center text-sm">Nurse</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="outfit" data-value="teacher">
+                                        <h4 class="font-semibold text-center text-sm">Teacher</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="outfit" data-value="maid">
+                                        <h4 class="font-semibold text-center text-sm">Maid</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="outfit" data-value="nude">
+                                        <h4 class="font-semibold text-center text-sm">Nude</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Personality -->
+                    <div id="step3" class="step-content hidden">
+                        <h3 class="text-xl font-semibold mb-6">Personality Traits</h3>
+                        <p class="text-sm text-gray-400 mb-6">Select up to 5 traits</p>
+                        <div class="grid grid-cols-4 gap-3" id="traitsGrid">
+                            <!-- Traits will be populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Finalize -->
+                    <div id="step4" class="step-content hidden">
+                        <h3 class="text-xl font-semibold mb-6">Finalize</h3>
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-3">Relationship Type</label>
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div class="selection-card" data-option="relationship" data-value="girlfriend">
+                                        <div class="text-3xl mb-2 text-center">💑</div>
+                                        <h4 class="font-semibold text-center text-sm">Girlfriend</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="relationship" data-value="wife">
+                                        <div class="text-3xl mb-2 text-center">💍</div>
+                                        <h4 class="font-semibold text-center text-sm">Wife</h4>
+                                    </div>
+                                    <div class="selection-card" data-option="relationship" data-value="mistress">
+                                        <div class="text-3xl mb-2 text-center">👠</div>
+                                        <h4 class="font-semibold text-center text-sm">Mistress</h4>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-400 mb-2">Occupation</label>
+                                <select id="occupation" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-colors">
+                                    <option value="Student">Student</option>
+                                    <option value="Nurse">Nurse</option>
+                                    <option value="Teacher">Teacher</option>
+                                    <option value="Model">Model</option>
+                                    <option value="Unemployed">Unemployed</option>
+                                </select>
+                            </div>
+
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-2">Preferred Voice</label>
+                                    <select id="preferredVoice" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-colors">
+                                        <option value="default">Auto-assigned (based on archetype)</option>
+                                        <option value="en-US-AvaNeural">Soft & Gentle (Ava)</option>
+                                        <option value="en-GB-SoniaNeural">Sultry British (Sonia)</option>
+                                        <option value="en-US-EmmaNeural">Clear & Professional (Emma)</option>
+                                        <option value="en-AU-NatashaNeural">Energetic Australian (Natasha)</option>
+                                        <option value="en-US-JennyNeural">Warm & Friendly (Jenny)</option>
+                                        <option value="en-US-AndrewNeural">Masculine (Andrew)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-400 mb-2">Starting Scenario</label>
+                                    <select id="startingScenario" class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-pink-500 transition-colors">
+                                        <option value="first_meeting">Just met for the first time</option>
+                                        <option value="online_date">Met on a dating app</option>
+                                        <option value="childhood_friends">Long-time childhood friends</option>
+                                        <option value="office_romance">Co-workers with a secret crush</option>
+                                        <option value="fantasy_quest">Adventurers on a fantasy quest</option>
+                                        <option value="married_life">Already happily married</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Navigation -->
+                    <div class="flex justify-between items-center mt-10 pt-8 border-t border-white/10">
+                        <button id="prevBtn" onclick="prevStep()" class="px-8 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 transition-all font-semibold border border-white/10 hover:border-white/20 hidden">
+                            <i class="fas fa-arrow-left mr-2"></i> Back
+                        </button>
+                        <button id="nextBtn" onclick="nextStep()" class="ml-auto px-10 py-3.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-500 font-semibold hover:opacity-90 transition-all hover:scale-105 shadow-lg shadow-pink-500/30">
+                            Next Step <i class="fas fa-arrow-right ml-2"></i>
+                        </button>
+                        <button id="createBtn" onclick="createCharacter()" class="ml-auto px-12 py-3.5 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 font-semibold hover:opacity-90 transition-all hover:scale-105 shadow-lg shadow-pink-500/40 hidden">
+                            Create Character ✨
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- CHAT VIEW -->
+    <div id="chat-view" class="view-section view-hidden">
+        <div class="chat-container">
+            <div class="sidebar" id="chatSidebar">
+                <div class="p-6 border-b border-white/10">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                                <i class="fas fa-heart text-white text-sm"></i>
+                            </div>
+                            <span class="text-lg font-bold">Luvr<span class="text-pink-500">.ai</span></span>
+                        </div>
+                        <button class="md:hidden text-gray-400 hover:text-white" onclick="window.chatApp.toggleSidebar()">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="text-center">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 mx-auto mb-3 flex items-center justify-center text-3xl overflow-hidden shadow-xl" id="companionAvatar">👤</div>
+                        <h3 class="font-bold text-lg" id="companionName">Loading...</h3>
+                        <p class="text-sm text-gray-400 mb-4" id="companionArchetype">Your AI Companion</p>
+                        
+                        <!-- Bond Level -->
+                        <div class="px-4 py-2 bg-white/5 rounded-xl border border-white/10 mb-4">
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="text-pink-400 font-semibold uppercase tracking-wider">Bond Level</span>
+                                <span class="text-white font-bold" id="relLevelText">1/10</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-black/30 rounded-full overflow-hidden">
+                                <div id="relLevelBar" class="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-1000" style="width: 10%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Voice Toggle -->
+                        <button id="voiceToggle" class="w-full py-2 px-4 rounded-xl bg-white/5 border border-white/10 flex items-center justify-between text-sm hover:bg-white/10 transition-all" onclick="window.chatApp.toggleVoice()">
+                            <span class="flex items-center gap-2">
+                                <i class="fas fa-volume-up text-pink-400" id="voiceIcon"></i>
+                                Voice Responses
+                            </span>
+                            <div class="w-8 h-4 bg-pink-500/30 rounded-full relative transition-colors" id="voiceSwitchBg">
+                                <div class="w-3 h-3 bg-white rounded-full absolute top-0.5 right-1 transition-all" id="voiceSwitchDot"></div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-1 p-4 overflow-y-auto">
+                    <button class="w-full px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-sm mb-6 flex items-center justify-center gap-2 border border-white/5" onclick="backToCreate()">
+                        <i class="fas fa-plus text-xs text-pink-400"></i> Create New
+                    </button>
+                    
+                    <div class="mb-4 px-2">
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Your Companions</h4>
+                        <div id="companionList">
+                            <!-- Companions will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-1 flex flex-col">
+                <!-- Mobile Header -->
+                <div class="mobile-header">
+                    <button class="text-gray-400 hover:text-white" onclick="window.chatApp.toggleSidebar()">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-xs overflow-hidden" id="mobileCompanionAvatar">👤</div>
+                        <span class="font-bold text-sm" id="mobileCompanionName">Luvr.ai</span>
+                    </div>
+                    <button class="text-gray-400 hover:text-white" onclick="backToCreate()">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <!-- Messages appear here -->
+                </div>
+                <div class="input-area">
+                    <div class="flex items-end gap-3 max-w-4xl mx-auto w-full">
+                        <textarea class="message-input flex-1" id="messageInput" placeholder="Type your message..." rows="1"></textarea>
+                        <div class="flex gap-2">
+                            <button class="media-button photo" id="photoButton" title="Request Photo">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                            <button class="media-button video" id="videoButton" title="Request Video">
+                                <i class="fas fa-video"></i>
+                            </button>
+                            <button class="send-button" id="sendButton">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox" onclick="window.chatApp.closeLightbox()">
+        <div class="close-lightbox"><i class="fas fa-times"></i></div>
+        <div id="lightboxContent" onclick="event.stopPropagation()"></div>
+    </div>
+
+    <script>
+        // Global state
+        const state = {
+            currentStep: 1,
+            totalSteps: 4,
+            characterData: {
+                gender: 'female',
+                style: 'realistic',
+                ethnicity: '',
+                age: '22-25',
+                eyeColor: 'blue',
+                hairType: '',
+                hairColor: '',
+                bodyType: '',
+                chestSize: '',
+                assSize: '',
+                cockSize: '',
+                outfit: 'casual',
+                traits: [],
+                relationship: '',
+                occupation: 'Unemployed',
+                preferredVoice: 'default',
+                startingScenario: 'first_meeting',
+                name: ''
+            }
+        };
+
+        // Traits data
+        const traits = [
+            { icon: '👑', name: 'Dominant' },
+            { icon: '🙇‍♀️', name: 'Submissive' },
+            { icon: '💃', name: 'Outgoing' },
+            { icon: '🤫', name: 'Shy' },
+            { icon: '💋', name: 'Seductive' },
+            { icon: '😈', name: 'Bratty' },
+            { icon: '👩‍🍼', name: 'Nurturing' },
+            { icon: '🧠', name: 'Smart' },
+            { icon: '🤪', name: 'Silly' },
+            { icon: '🔥', name: 'Nympho' },
+            { icon: '👶', name: 'Breeding' },
+            { icon: '💦', name: 'Smut' },
+            { icon: '🎭', name: 'Roleplay' },
+            { icon: '⛓️', name: 'BDSM' },
+            { icon: '🎯', name: 'JOI' },
+            { icon: '👗', name: 'Petite' },
+            { icon: '🔮', name: 'Magical' },
+            { icon: '💖', name: 'Romantic' },
+            { icon: '😡', name: 'Tsundere' },
+            { icon: '🔪', name: 'Yandere' }
+        ];
+
+        // Initialize traits grid
+        function initTraitsGrid() {
+            const grid = document.getElementById('traitsGrid');
+            if (!grid) return;
+            
+            traits.forEach(trait => {
+                const card = document.createElement('div');
+                card.className = 'selection-card';
+                card.setAttribute('data-option', 'trait');
+                card.setAttribute('data-value', trait.name);
+                card.innerHTML = `
+                    <div class="text-2xl mb-2 text-center">${trait.icon}</div>
+                    <h4 class="font-semibold text-center text-sm">${trait.name}</h4>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Selection handler - WORKS FOR ALL CARDS
+        window.handleSelection = function handleSelection(element) {
+            if (!element) return;
+            
+            const option = element.getAttribute('data-option');
+            const value = element.getAttribute('data-value');
+            
+            if (!option || !value) return;
+            
+            console.log('Selection:', option, value);
+            
+            // Update state
+            if (option === 'trait') {
+                const index = state.characterData.traits.indexOf(value);
+                if (index > -1) {
+                    state.characterData.traits.splice(index, 1);
+                    element.classList.remove('selected');
+                } else {
+                    if (state.characterData.traits.length < 5) {
+                        state.characterData.traits.push(value);
+                        element.classList.add('selected');
+                    } else {
+                        alert('Maximum 5 traits allowed');
+                        return;
+                    }
+                }
+            } else {
+                // For single-select options, deselect siblings
+                const container = element.closest('.step-content') || element.parentElement;
+                if (container) {
+                    container.querySelectorAll(`[data-option="${option}"]`).forEach(el => {
+                        el.classList.remove('selected');
+                    });
+                }
+                element.classList.add('selected');
+                state.characterData[option] = value;
+            }
+            
+            // Special handling for gender - show/hide appropriate sections
+            if (option === 'gender') {
+                const femaleOptions = document.getElementById('femaleOptions');
+                const maleOptions = document.getElementById('maleOptions');
+                const futaOptions = document.getElementById('futaOptions');
+                
+                // Hide all first
+                if (femaleOptions) femaleOptions.classList.add('hidden');
+                if (maleOptions) maleOptions.classList.add('hidden');
+                if (futaOptions) futaOptions.classList.add('hidden');
+                
+                // Show appropriate section
+                if (value === 'female') {
+                    if (femaleOptions) femaleOptions.classList.remove('hidden');
+                } else if (value === 'male') {
+                    if (maleOptions) maleOptions.classList.remove('hidden');
+                } else if (value === 'futa') {
+                    if (futaOptions) futaOptions.classList.remove('hidden');
+                }
+            }
+            
+            console.log('Updated state:', state.characterData);
+        }
+
+        // Step navigation
+        window.updateUI = function updateUI() {
+            // Update step visibility with animation
+            for (let i = 1; i <= state.totalSteps; i++) {
+                const step = document.getElementById(`step${i}`);
+                if (step) {
+                    if (i === state.currentStep) {
+                        step.classList.remove('hidden');
+                        step.style.animation = 'fadeInUp 0.5s ease';
+                    } else {
+                        step.classList.add('hidden');
+                    }
+                }
+                
+                // Update step indicators
+                const stepDot = document.getElementById(`stepDot${i}`);
+                if (stepDot) {
+                    stepDot.classList.remove('active', 'completed');
+                    if (i < state.currentStep) {
+                        stepDot.classList.add('completed');
+                    } else if (i === state.currentStep) {
+                        stepDot.classList.add('active');
+                    }
+                }
+            }
+            
+            // Update buttons
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const createBtn = document.getElementById('createBtn');
+            
+            if (prevBtn) prevBtn.classList.toggle('hidden', state.currentStep === 1);
+            if (nextBtn) nextBtn.classList.toggle('hidden', state.currentStep === state.totalSteps);
+            if (createBtn) createBtn.classList.toggle('hidden', state.currentStep !== state.totalSteps);
+        }
+
+        window.nextStep = function nextStep() {
+            if (state.currentStep < state.totalSteps) {
+                state.currentStep++;
+                updateUI();
+            }
+        };
+
+        window.prevStep = function prevStep() {
+            if (state.currentStep > 1) {
+                state.currentStep--;
+                updateUI();
+            }
+        };
+
+        window.createCharacter = async function createCharacter() {
+            const nameInput = document.getElementById('companionName');
+            const ageSelect = document.getElementById('ageRange');
+            const occSelect = document.getElementById('occupation');
+            const voiceSelect = document.getElementById('preferredVoice');
+            const scenarioSelect = document.getElementById('startingScenario');
+            
+            state.characterData.name = nameInput ? nameInput.value.trim() || 'My Companion' : 'My Companion';
+            state.characterData.age = ageSelect ? ageSelect.value : '22-25';
+            state.characterData.occupation = occSelect ? occSelect.value : 'Unemployed';
+            state.characterData.preferredVoice = voiceSelect ? voiceSelect.value : 'default';
+            state.characterData.startingScenario = scenarioSelect ? scenarioSelect.value : 'first_meeting';
+            
+            const payload = {
+                name: state.characterData.name,
+                archetype: "custom",
+                basicInfo: {
+                    gender: state.characterData.gender,
+                    age: state.characterData.age,
+                    occupation: state.characterData.occupation
+                },
+                appearance: {
+                    style: state.characterData.style,
+                    ethnicity: state.characterData.ethnicity,
+                    hairColor: state.characterData.hairColor,
+                    hairType: state.characterData.hairType,
+                    eyeColor: state.characterData.eyeColor || 'blue',
+                    bodyType: state.characterData.bodyType,
+                    chestSize: state.characterData.chestSize,
+                    assSize: state.characterData.assSize,
+                    cockSize: state.characterData.cockSize,
+                    outfit: state.characterData.outfit
+                },
+                voice: { type: state.characterData.preferredVoice },
+                interests: [],
+                selectedTraits: state.characterData.traits,
+                relationshipType: state.characterData.relationship || 'girlfriend',
+                occupation: state.characterData.occupation,
+                startingScenario: state.characterData.startingScenario
+            };
+            
+            const btn = document.getElementById('createBtn');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Creating...';
+            }
+            
+            try {
+                const response = await fetch('/api/create-companion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('companionId', data.companionId);
+                    
+                    // Switch to chat view
+                    showView('chat');
+                    
+                    // Initialize chat
+                    if (window.chatApp) {
+                        window.chatApp.companionId = data.companionId;
+                        await window.chatApp.init();
+                    } else {
+                        window.chatApp = new AICompanionChat(data.companionId);
+                        await window.chatApp.init();
+                    }
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.detail);
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = 'Create Character ✨';
+                    }
+                }
+            } catch (e) {
+                alert('Network error: ' + e.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Create Character ✨';
+                }
+            }
+        }
+
+        window.backToCreate = function backToCreate() {
+            showView('create');
+        };
+
+        // Define showView early so it's available
+        window.showView = function showView(viewName) {
+            // Hide all views
+            document.getElementById('explore-view')?.classList.add('view-hidden');
+            document.getElementById('creation-view')?.classList.add('view-hidden');
+            document.getElementById('chat-view')?.classList.add('view-hidden');
+            
+            // Toggle VRM visibility
+            const canvas = document.querySelector('canvas');
+            if (canvas) {
+                canvas.style.display = viewName === 'chat' ? 'block' : 'none';
+            }
+            
+            // Show selected view
+            if (viewName === 'explore') {
+                const exploreView = document.getElementById('explore-view');
+                if (exploreView) {
+                    exploreView.classList.remove('view-hidden');
+                    // Load explore previews if not already loaded
+                    const grid = document.getElementById('exploreGrid');
+                    if (grid && grid.children.length === 0) {
+                        loadExplorePreviews();
+                    }
+                }
+            } else if (viewName === 'create') {
+                const createView = document.getElementById('creation-view');
+                if (createView) {
+                    createView.classList.remove('view-hidden');
+                    // Ensure UI is updated
+                    updateUI();
+                }
+            } else if (viewName === 'chat') {
+                const chatView = document.getElementById('chat-view');
+                if (chatView) {
+                    chatView.classList.remove('view-hidden');
+                    // Initialize chat if companion exists
+                    const companionId = localStorage.getItem('companionId');
+                    if (!window.chatApp) {
+                        window.chatApp = new AICompanionChat(companionId);
+                    } else {
+                        window.chatApp.companionId = companionId || window.chatApp.companionId;
+                    }
+                    window.chatApp.init();
+                }
+            }
+        };
+
+        async function requestImage(type) {
+            if (!window.chatApp || !window.chatApp.companionId) {
+                alert('Chat not initialized');
+                return;
+            }
+            
+            const message = type === 'video' ? 'send me a video' : 'send me a selfie';
+            
+            // Set the input value and trigger send
+            const input = document.getElementById('messageInput');
+            if (input) {
+                input.value = message;
+            }
+            
+            // Call sendMessage which will read from input
+            await window.chatApp.sendMessage();
+        }
+
+        // Chat functionality
+        class AICompanionChat {
+            constructor(companionId = null) {
+                this.companionId = companionId || localStorage.getItem('companionId');
+                this.companionData = null;
+                this.messages = [];
+                this.isTyping = false;
+                this.isVoiceEnabled = localStorage.getItem('voiceEnabled') !== 'false';
+                this.currentAudio = null;
+                this.md = window.markdownit ? window.markdownit({
+                    html: true,
+                    linkify: true,
+                    typographer: true
+                }) : null;
+            }
+
+            async init() {
+                if (!this.companionId) {
+                    await this.loadCompanionList();
+                    return;
+                }
+                
+                await this.loadCompanionData();
+                await this.loadCompanionList();
+                this.setupEventListeners();
+                this.loadMessageHistory();
+                this.updateVoiceUI();
+                if (this.messages.length === 0) {
+                    this.loadInitialMessages();
+                }
+            }
+
+            toggleVoice() {
+                this.isVoiceEnabled = !this.isVoiceEnabled;
+                localStorage.setItem('voiceEnabled', this.isVoiceEnabled);
+                this.updateVoiceUI();
+                
+                if (!this.isVoiceEnabled && this.currentAudio) {
+                    this.currentAudio.pause();
+                    if (window.vrmAPI) window.vrmAPI.speak(false);
+                }
+            }
+
+            updateVoiceUI() {
+                const icon = document.getElementById('voiceIcon');
+                const switchBg = document.getElementById('voiceSwitchBg');
+                const switchDot = document.getElementById('voiceSwitchDot');
+                
+                if (this.isVoiceEnabled) {
+                    icon?.classList.remove('fa-volume-mute');
+                    icon?.classList.add('fa-volume-up');
+                    switchBg?.classList.remove('bg-gray-500/30');
+                    switchBg?.classList.add('bg-pink-500/30');
+                    switchDot?.classList.remove('left-1');
+                    switchDot?.classList.add('right-1');
+                } else {
+                    icon?.classList.remove('fa-volume-up');
+                    icon?.classList.add('fa-volume-mute');
+                    switchBg?.classList.remove('bg-pink-500/30');
+                    switchBg?.classList.add('bg-gray-500/30');
+                    switchDot?.classList.remove('right-1');
+                    switchDot?.classList.add('left-1');
+                }
+            }
+
+            async playTTS(text) {
+                if (!this.isVoiceEnabled || !this.companionData?.voiceType) return;
+                
+                // Strip markdown and actions for speech
+                const cleanText = text.replace(/\*[^*]*\*/g, '').replace(/#|!|\[|\]|\(|\)/g, '').trim();
+                if (!cleanText) return;
+
+                try {
+                    const voice = this.companionData.voiceType;
+                    const url = `/api/tts?text=${encodeURIComponent(cleanText)}&voice=${encodeURIComponent(voice)}`;
+                    
+                    if (this.currentAudio) {
+                        this.currentAudio.pause();
+                    }
+                    
+                    this.currentAudio = new Audio(url);
+                    
+                    this.currentAudio.onplay = () => {
+                        if (window.vrmAPI) window.vrmAPI.speak(true);
+                    };
+                    
+                    this.currentAudio.onended = () => {
+                        if (window.vrmAPI) window.vrmAPI.speak(false);
+                    };
+                    
+                    this.currentAudio.onerror = () => {
+                        if (window.vrmAPI) window.vrmAPI.speak(false);
+                    };
+
+                    await this.currentAudio.play();
+                } catch (e) {
+                    console.error('TTS playback error:', e);
+                    if (window.vrmAPI) window.vrmAPI.speak(false);
+                }
+            }
+
+            async loadCompanionList() {
+                try {
+                    const response = await fetch('/api/companions');
+                    if (response.ok) {
+                        const companions = await response.json();
+                        this.renderCompanionList(companions);
+                    }
+                } catch (e) {
+                    console.error('Error loading companion list:', e);
+                }
+            }
+
+            renderCompanionList(companions) {
+                const listEl = document.getElementById('companionList');
+                if (!listEl) return;
+                
+                listEl.innerHTML = '';
+                
+                if (companions.length === 0) {
+                    listEl.innerHTML = '<div class="text-xs text-gray-500 text-center py-8 px-4 bg-white/5 rounded-xl border border-dashed border-white/10">No characters yet. Start by creating your first partner!</div>';
+                    return;
+                }
+                
+                companions.forEach(c => {
+                    const item = document.createElement('div');
+                    item.className = `companion-item ${c.companionId === this.companionId ? 'active' : ''}`;
+                    item.onclick = () => this.switchCompanion(c.companionId);
+                    
+                    const avatarContent = c.avatarUrl 
+                        ? `<img src="/api/media/image?url=${encodeURIComponent(c.avatarUrl)}" class="w-full h-full object-cover">`
+                        : '👤';
+                        
+                    item.innerHTML = `
+                        <div class="companion-item-avatar">${avatarContent}</div>
+                        <div class="companion-item-info">
+                            <div class="companion-item-name">${c.name}</div>
+                            <div class="companion-item-meta">${c.relationshipType || 'AI Companion'}</div>
+                        </div>
+                        <button class="delete-companion-btn p-2 text-gray-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100" 
+                                onclick="event.stopPropagation(); window.chatApp.deleteCompanion('${c.companionId}')">
+                            <i class="fas fa-trash-alt text-xs"></i>
+                        </button>
+                    `;
+                    item.classList.add('group'); // Add group class for hover effect
+                    listEl.appendChild(item);
+                });
+            }
+
+            async deleteCompanion(id) {
+                if (!confirm('Are you sure you want to delete this character? All chat history will be lost.')) return;
+                
+                try {
+                    const response = await fetch(`/api/companion/${id}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        localStorage.removeItem(`chat_history_${id}`);
+                        if (this.companionId === id) {
+                            this.companionId = null;
+                            localStorage.removeItem('companionId');
+                            const container = document.getElementById('chatMessages');
+                            if (container) container.innerHTML = '';
+                            document.getElementById('companionName').textContent = 'Select a character';
+                            document.getElementById('companionArchetype').textContent = '';
+                            document.getElementById('companionAvatar').textContent = '👤';
+                        }
+                        await this.loadCompanionList();
+                    }
+                } catch (e) {
+                    console.error('Error deleting companion:', e);
+                }
+            }
+
+            async switchCompanion(id) {
+                if (id === this.companionId) return;
+                
+                // Save current history before switching
+                this.saveMessageHistory();
+                
+                this.companionId = id;
+                localStorage.setItem('companionId', id);
+                this.messages = [];
+                
+                // Clear chat messages UI
+                const container = document.getElementById('chatMessages');
+                if (container) container.innerHTML = '';
+                
+                await this.init();
+                
+                // Trigger VRM model switch based on companion gender
+                if (this.companionData && window.vrmAPI) {
+                    const gender = this.companionData.basicInfo?.gender || 'female';
+                    const modelId = gender === 'male' ? 'bob' : 'alice';
+                    // We don't want to reload the whole page every time if possible
+                    // But for now vrmAPI.loadModel reloads. 
+                    // Let's just check if we need to switch.
+                    // This is a placeholder for better dynamic loading
+                }
+            }
+
+            async loadCompanionData() {
+                try {
+                    const response = await fetch(`/api/companion/${this.companionId}`);
+                    if (!response.ok) throw new Error('Companion not found');
+                    
+                    this.companionData = await response.json();
+                    this.updateUI();
+                } catch (error) {
+                    console.error('Error loading companion:', error);
+                }
+            }
+
+            updateUI() {
+                if (!this.companionData) {
+                    // Reset mobile header if no companion
+                    const mobileNameEl = document.getElementById('mobileCompanionName');
+                    if (mobileNameEl) mobileNameEl.textContent = 'Luvr.ai';
+                    return;
+                }
+                
+                const nameEl = document.getElementById('companionName');
+                const archetypeEl = document.getElementById('companionArchetype');
+                const avatarEl = document.getElementById('companionAvatar');
+                const relLevelText = document.getElementById('relLevelText');
+                const relLevelBar = document.getElementById('relLevelBar');
+                
+                // Mobile UI elements
+                const mobileNameEl = document.getElementById('mobileCompanionName');
+                const mobileAvatarEl = document.getElementById('mobileCompanionAvatar');
+                
+                if (nameEl) nameEl.textContent = this.companionData.name;
+                if (mobileNameEl) mobileNameEl.textContent = this.companionData.name;
+                if (archetypeEl) archetypeEl.textContent = this.companionData.archetype.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                
+                // Update Relationship Level
+                const level = this.companionData.relationshipLevel || 1;
+                if (relLevelText) relLevelText.textContent = `${level}/10`;
+                if (relLevelBar) relLevelBar.style.width = `${level * 10}%`;
+
+                const avatarHtml = this.companionData.avatarUrl 
+                    ? `<img src="/api/media/image?url=${encodeURIComponent(this.companionData.avatarUrl)}" class="w-full h-full object-cover rounded-full">`
+                    : '👤';
+
+                if (avatarEl) avatarEl.innerHTML = avatarHtml;
+                if (mobileAvatarEl) mobileAvatarEl.innerHTML = avatarHtml;
+            }
+
+            toggleSidebar() {
+                const sidebar = document.getElementById('chatSidebar');
+                sidebar?.classList.toggle('active');
+            }
+
+            openLightbox(content) {
+                const lightbox = document.getElementById('lightbox');
+                const container = document.getElementById('lightboxContent');
+                if (lightbox && container) {
+                    container.innerHTML = content;
+                    lightbox.style.display = 'flex';
+                    // Disable scroll
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+
+            closeLightbox() {
+                const lightbox = document.getElementById('lightbox');
+                if (lightbox) {
+                    lightbox.style.display = 'none';
+                    document.body.style.overflow = '';
+                }
+            }
+
+            setupEventListeners() {
+                // Remove old listeners to avoid duplicates if init is called multiple times
+                const oldInput = document.getElementById('messageInput');
+                const sendBtn = document.getElementById('sendButton');
+                const photoBtn = document.getElementById('photoButton');
+                const videoBtn = document.getElementById('videoButton');
+                
+                // Clone and replace to clear listeners (a bit hacky but effective)
+                if (oldInput) {
+                    const input = oldInput.cloneNode(true);
+                    oldInput.parentNode.replaceChild(input, oldInput);
+                    
+                    input.addEventListener('input', () => {
+                        input.style.height = 'auto';
+                        input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+                    });
+                    
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (!this.isTyping) {
+                                this.sendMessage();
+                            }
+                        }
+                    });
+                }
+                
+                if (sendBtn) {
+                    const newSendBtn = sendBtn.cloneNode(true);
+                    sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
+                    newSendBtn.addEventListener('click', () => {
+                        if (!this.isTyping) {
+                            this.sendMessage();
+                        }
+                    });
+                }
+                
+                if (photoBtn) {
+                    const newPhotoBtn = photoBtn.cloneNode(true);
+                    photoBtn.parentNode.replaceChild(newPhotoBtn, photoBtn);
+                    newPhotoBtn.addEventListener('click', () => {
+                        if (!this.isTyping) {
+                            this.sendMediaRequest('photo');
+                        }
+                    });
+                }
+                
+                if (videoBtn) {
+                    const newVideoBtn = videoBtn.cloneNode(true);
+                    videoBtn.parentNode.replaceChild(newVideoBtn, videoBtn);
+                    newVideoBtn.addEventListener('click', () => {
+                        if (!this.isTyping) {
+                            this.sendMediaRequest('video');
+                        }
+                    });
+                }
+            }
+
+            async sendMediaRequest(type) {
+                if (this.isTyping) return;
+                
+                // Generate appropriate message based on type
+                const messages = {
+                    photo: [
+                        "send me your tits",
+                        "show me your boobs",
+                        "send me a nude selfie",
+                        "show me your body",
+                        "send me a picture of you",
+                        "let me see you naked"
+                    ],
+                    video: [
+                        "send me a video",
+                        "show me a video of you",
+                        "send me a clip",
+                        "make me a video",
+                        "record a video for me"
+                    ]
+                };
+                
+                const messageList = messages[type] || messages.photo;
+                const message = messageList[Math.floor(Math.random() * messageList.length)];
+                
+                // Set input and send
+                const input = document.getElementById('messageInput');
+                if (input) {
+                    input.value = message;
+                }
+                
+                await this.sendMessage();
+            }
+
+            loadInitialMessages() {
+                const welcome = "Hi there! I'm so excited to meet you! 💕 How are you feeling today?";
+                this.addMessage('companion', welcome);
+                this.saveMessageHistory();
+            }
+
+            loadMessageHistory() {
+                try {
+                    const saved = localStorage.getItem(`chat_history_${this.companionId}`);
+                    if (saved) {
+                        const history = JSON.parse(saved);
+                        history.forEach(msg => {
+                            this.addMessage(msg.sender, msg.content, false); // false = don't animate
+                        });
+                    }
+                } catch (e) {
+                    console.error('Error loading message history:', e);
+                }
+            }
+
+            saveMessageHistory() {
+                try {
+                    localStorage.setItem(`chat_history_${this.companionId}`, JSON.stringify(this.messages));
+                } catch (e) {
+                    console.error('Error saving message history:', e);
+                }
+            }
+
+            showTypingIndicator() {
+                const container = document.getElementById('chatMessages');
+                if (!container) return;
+                
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'message companion';
+                typingDiv.id = 'typing-indicator';
+                typingDiv.innerHTML = `
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                `;
+                container.appendChild(typingDiv);
+                container.scrollTop = container.scrollHeight;
+            }
+
+            hideTypingIndicator() {
+                const indicator = document.getElementById('typing-indicator');
+                if (indicator) {
+                    indicator.remove();
+                }
+            }
+
+            async sendMessage(retryCount = 0) {
+                const input = document.getElementById('messageInput');
+                if (!input) return;
+                
+                const message = input.value.trim();
+                if (!message || this.isTyping) return;
+                
+                this.addMessage('user', message);
+                input.value = '';
+                this.saveMessageHistory();
+                
+                this.isTyping = true;
+                this.showTypingIndicator();
+                
+                try {
+                    const response = await fetch('/api/companion/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            companionId: this.companionId,
+                            message: message,
+                            context: {}
+                        })
+                    });
+                    
+                    this.hideTypingIndicator();
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const isMedia = data.response.includes('IMAGE_URL:') || data.response.includes('VIDEO_URL:');
+                        
+                        // Detect expression from text
+                        if (window.vrmAPI) {
+                            const text = data.response.toLowerCase();
+                            if (text.includes('😊') || text.includes('happy') || text.includes('love') || text.includes('💕')) {
+                                window.vrmAPI.setExpression('happy');
+                            } else if (text.includes('😢') || text.includes('sad') || text.includes('sorry')) {
+                                window.vrmAPI.setExpression('sad');
+                            } else if (text.includes('😠') || text.includes('angry')) {
+                                window.vrmAPI.setExpression('angry');
+                            } else if (text.includes('😮') || text.includes('wow') || text.includes('surprise')) {
+                                window.vrmAPI.setExpression('surprised');
+                            } else {
+                                window.vrmAPI.setExpression('neutral');
+                            }
+                        }
+
+                        if (isMedia) {
+                            this.addMessage('companion', data.response, true, true); // true = isMedia
+                        } else {
+                            this.addMessage('companion', data.response);
+                            // Play voice for text responses
+                            this.playTTS(data.response);
+                        }
+                        this.saveMessageHistory();
+                        
+                        // Refresh data to show relationship level updates
+                        await this.loadCompanionData();
+                    } else {
+                        const errorText = await response.text();
+                        console.error('Response error:', response.status, errorText);
+                        
+                        // Retry logic for server errors
+                        if (response.status >= 500 && retryCount < 2) {
+                            setTimeout(() => {
+                                this.sendMessage(retryCount + 1);
+                            }, 1000 * (retryCount + 1));
+                            return;
+                        }
+                        
+                        this.addMessage('companion', "I'm sorry, I'm having trouble responding right now. Please try again in a moment.");
+                        this.saveMessageHistory();
+                    }
+                } catch (error) {
+                    this.hideTypingIndicator();
+                    console.error('Chat error:', error);
+                    
+                    // Retry logic for network errors
+                    if (retryCount < 2) {
+                        setTimeout(() => {
+                            this.sendMessage(retryCount + 1);
+                        }, 1000 * (retryCount + 1));
+                        return;
+                    }
+                    
+                    this.addMessage('companion', "I'm having connection issues. Please check your internet and try again.");
+                    this.saveMessageHistory();
+                } finally {
+                    this.isTyping = false;
+                }
+            }
+
+            addMessage(sender, content, animate = true, isMedia = false) {
+                const container = document.getElementById('chatMessages');
+                if (!container) return;
+                
+                const msgDiv = document.createElement('div');
+                msgDiv.className = `message ${sender}`;
+                if (!animate) {
+                    msgDiv.style.animation = 'none';
+                }
+                
+                let htmlContent = '';
+                
+                if (isMedia || content.includes('IMAGE_URL:') || content.includes('VIDEO_URL:')) {
+                    // Custom parsing for media
+                    htmlContent = this.parseMediaContent(content);
+                } else {
+                    // Markdown parsing for text
+                    if (this.md) {
+                        htmlContent = this.md.render(content);
+                    } else {
+                        htmlContent = content.replace(/\n/g, '<br>');
+                    }
+                }
+                
+                msgDiv.innerHTML = `
+                    <div class="message-content">${htmlContent}</div>
+                `;
+                
+                container.appendChild(msgDiv);
+                
+                // Use requestAnimationFrame for smoother scroll
+                requestAnimationFrame(() => {
+                    container.scrollTop = container.scrollHeight;
+                });
+                
+                // Only add to history if it's not already there (for loadMessageHistory)
+                if (animate) {
+                    this.messages.push({ sender, content });
+                }
+            }
+
+            parseMediaContent(content) {
+                let htmlContent = content;
+                
+                // Check for image URL format: IMAGE_URL:url
+                if (htmlContent.includes('IMAGE_URL:')) {
+                    const imageIndex = htmlContent.indexOf('IMAGE_URL:');
+                    const afterPrefix = htmlContent.substring(imageIndex + 'IMAGE_URL:'.length);
+                    const urlMatch = afterPrefix.match(/^([^\s\n]+)/);
+                    if (urlMatch && urlMatch[1]) {
+                        const imageUrl = urlMatch[1].trim();
+                        const textBefore = htmlContent.substring(0, imageIndex).trim();
+                        const textAfter = afterPrefix.substring(urlMatch[0].length).trim();
+                        
+                        let finalHtml = '';
+                        if (textBefore) {
+                            finalHtml += (this.md ? this.md.render(textBefore) : textBefore.replace(/\n/g, '<br>')) + '<br>';
+                        }
+                        
+                        finalHtml += `<div class="message-image-container" onclick="window.chatApp.openLightbox('<img src=\\'${imageUrl}\\'>')">
+                            <div class="media-loading">
+                                <div class="media-loading-spinner"></div>
+                            </div>
+                            <img src="${imageUrl}" alt="Generated image" class="message-image" loading="lazy" 
+                                onload="this.previousElementSibling.style.display='none'; this.style.display='block';" 
+                                onerror="this.previousElementSibling.innerHTML='<div class=\\'media-error\\'><p>Failed to load image</p></div>'; this.previousElementSibling.style.display='block'; this.style.display='none';"
+                                style="display:none;">
+                        </div>`;
+                        
+                        if (textAfter) {
+                            finalHtml += '<br>' + (this.md ? this.md.render(textAfter) : textAfter.replace(/\n/g, '<br>'));
+                        }
+                        return finalHtml;
+                    }
+                }
+                
+                // Check for video URL format: VIDEO_URL:url
+                if (htmlContent.includes('VIDEO_URL:')) {
+                    const videoIndex = htmlContent.indexOf('VIDEO_URL:');
+                    const afterPrefix = htmlContent.substring(videoIndex + 'VIDEO_URL:'.length);
+                    const urlMatch = afterPrefix.match(/^([^\s\n]+)/);
+                    if (urlMatch && urlMatch[1]) {
+                        const videoUrl = urlMatch[1].trim();
+                        const textBefore = htmlContent.substring(0, videoIndex).trim();
+                        const textAfter = afterPrefix.substring(urlMatch[0].length).trim();
+                        
+                        let finalHtml = '';
+                        if (textBefore) {
+                            finalHtml += (this.md ? this.md.render(textBefore) : textBefore.replace(/\n/g, '<br>')) + '<br>';
+                        }
+                        
+                        finalHtml += `<div class="message-video-container" onclick="window.chatApp.openLightbox('<video controls autoplay loop><source src=\\'${videoUrl}\\' type=\\'video/mp4\\'></video>')">
+                            <div class="media-loading">
+                                <div class="media-loading-spinner"></div>
+                            </div>
+                            <video controls class="message-video" autoplay loop muted style="display:none;"
+                                onloadeddata="this.previousElementSibling.style.display='none'; this.style.display='block';"
+                                onerror="this.previousElementSibling.innerHTML='<div class=\\'media-error\\'><p>Failed to load video</p></div>'; this.previousElementSibling.style.display='block'; this.style.display='none';">
+                                <source src="${videoUrl}" type="video/mp4">
+                            </video>
+                        </div>`;
+                        
+                        if (textAfter) {
+                            finalHtml += '<br>' + (this.md ? this.md.render(textAfter) : textAfter.replace(/\n/g, '<br>'));
+                        }
+                        return finalHtml;
+                    }
+                }
+                
+                return htmlContent;
+            }
+        }
+
+        // Explore preview slideshow
+        const previewCategories = [
+            { name: 'Female', category: 'female', icon: '👩' },
+            { name: 'Male', category: 'male', icon: '👨' },
+            { name: 'Anime Girl', category: 'anime_female', icon: '🎨' },
+            { name: 'Anime Boy', category: 'anime_male', icon: '🎭' },
+            { name: 'Futa (Realistic)', category: 'futa_realistic', icon: '🍆' },
+            { name: 'Futa (Anime)', category: 'futa_anime', icon: '✨' }
+        ];
+
+        async function loadExplorePreviews() {
+            const grid = document.getElementById('exploreGrid');
+            if (!grid) return;
+
+            // Add create card
+            const createCard = document.createElement('div');
+            createCard.className = 'preview-card';
+            createCard.onclick = () => showView('create');
+            createCard.innerHTML = `
+                <div class="preview-slideshow" id="slideshow-create">
+                    <div class="preview-slide loading active">
+                        <div class="media-loading-spinner"></div>
+                    </div>
+                </div>
+                <h3 class="font-semibold mb-2 mt-4 text-center">Create New Character</h3>
+                <p class="text-sm text-gray-400 mb-4 text-center">Start creating your perfect companion</p>
+                <button class="w-full bg-gradient-to-r from-pink-500 to-purple-500 text-white py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-pink-500/50 transition-all">
+                    Create Character
+                </button>
+            `;
+            grid.appendChild(createCard);
+
+            // Load slideshow for create card (mix of all categories)
+            loadPreviewSlideshow('slideshow-create', previewCategories.map(c => c.category));
+
+            // Add preview cards for each category
+            for (const cat of previewCategories) {
+                const card = document.createElement('div');
+                card.className = 'preview-card';
+                card.onclick = () => {
+                    // Filter by category and show create view
+                    showView('create');
+                };
+                
+                const slideshowId = `slideshow-${cat.category}`;
+                card.innerHTML = `
+                    <div class="preview-slideshow" id="${slideshowId}">
+                        <div class="preview-slide loading active">
+                            <div class="media-loading-spinner"></div>
+                        </div>
+                    </div>
+                    <h3 class="font-semibold mb-1 mt-4 text-center">${cat.name}</h3>
+                    <p class="text-xs text-gray-400 text-center">Click to create</p>
+                `;
+                grid.appendChild(card);
+
+                // Load preview images
+                loadPreviewSlideshow(slideshowId, [cat.category]);
+            }
+        }
+
+        async function loadPreviewSlideshow(slideshowId, categories) {
+            const slideshow = document.getElementById(slideshowId);
+            if (!slideshow) return;
+
+            // Generate multiple images for slideshow (3 per category)
+            const images = [];
+            for (const category of categories) {
+                for (let i = 0; i < 3; i++) {
+                    try {
+                        const response = await fetch(`/api/explore/preview?category=${category}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            images.push(data.imageUrl);
+                        }
+                    } catch (e) {
+                        console.error('Error loading preview:', e);
+                    }
+                }
+            }
+
+            if (images.length === 0) {
+                // Fallback: show placeholder
+                slideshow.innerHTML = `
+                    <div class="preview-slide active" style="background: linear-gradient(135deg, rgba(236, 72, 153, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%); display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-image text-4xl text-pink-400"></i>
+                    </div>
+                `;
+                return;
+            }
+
+            // Remove loading indicator
+            slideshow.innerHTML = '';
+
+            // Add images to slideshow
+            images.forEach((url, index) => {
+                const img = document.createElement('img');
+                img.src = url;
+                img.className = `preview-slide ${index === 0 ? 'active' : ''}`;
+                img.alt = 'Preview';
+                img.loading = 'lazy';
+                img.onerror = function() {
+                    this.style.display = 'none';
+                };
+                slideshow.appendChild(img);
+            });
+
+            // Start slideshow rotation
+            let currentIndex = 0;
+            const intervalId = setInterval(() => {
+                const slides = slideshow.querySelectorAll('.preview-slide');
+                if (slides.length === 0) {
+                    clearInterval(intervalId);
+                    return;
+                }
+                
+                slides[currentIndex].classList.remove('active');
+                currentIndex = (currentIndex + 1) % slides.length;
+                slides[currentIndex].classList.add('active');
+            }, 3000); // Change every 3 seconds
+
+            // Store interval ID for cleanup if needed
+            slideshow.dataset.intervalId = intervalId;
+        }
+
+        // Make loadExplorePreviews globally accessible
+        window.loadExplorePreviews = loadExplorePreviews;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Filter tag click handlers
+            document.querySelectorAll('.filter-tag').forEach(tag => {
+                tag.addEventListener('click', function() {
+                    this.classList.toggle('active');
+                    // Filter logic can be added here
+                });
+            });
+            
+            // Set initial view based on URL or localStorage
+            const storedCompanionId = localStorage.getItem('companionId');
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialView = urlParams.get('view') || (storedCompanionId ? 'chat' : 'explore');
+            
+            // Load explore previews when explore view is shown
+            if (initialView === 'explore') {
+                loadExplorePreviews();
+            }
+            
+            showView(initialView);
+            
+            // Set up selection cards (use event delegation to avoid duplicate listeners)
+            document.addEventListener('click', function(e) {
+                const card = e.target.closest('.selection-card');
+                if (card) {
+                    handleSelection(card);
+                }
+            });
+            
+            // Navigation buttons
+            const nextBtn = document.getElementById('nextBtn');
+            const prevBtn = document.getElementById('prevBtn');
+            const createBtn = document.getElementById('createBtn');
+            
+            if (nextBtn) nextBtn.addEventListener('click', nextStep);
+            if (prevBtn) prevBtn.addEventListener('click', prevStep);
+            if (createBtn) createBtn.addEventListener('click', createCharacter);
+            
+            // Initialize traits grid
+            initTraitsGrid();
+            
+            // Initialize chat if companion exists and we're on chat view
+            if (storedCompanionId && initialView === 'chat') {
+                window.chatApp = new AICompanionChat(storedCompanionId);
+                window.chatApp.init();
+            } else if (initialView === 'create') {
+                updateUI();
+            }
+            
+            // Make functions globally accessible
+            window.backToCreate = backToCreate;
+            window.requestImage = requestImage;
+            window.showView = showView;
+            window.nextStep = nextStep;
+            window.prevStep = prevStep;
+            window.createCharacter = createCharacter;
+            window.handleSelection = handleSelection;
+        });
+    </script>
+    <script type="module" src="/js/vrm.js"></script>
+</body>
+</html>
+
