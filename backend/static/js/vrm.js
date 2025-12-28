@@ -19,12 +19,25 @@ const isElectron = typeof require !== 'undefined' || navigator.userAgent.include
 document.body.classList.add(isElectron ? 'electron' : 'web');
 
 // 优化渲染器设置
-const renderer = new THREE.WebGLRenderer();
-// 添加性能优化设置
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.max(1, window.devicePixelRatio));
-renderer.setClearColor(0x00000000, 0);
+const container = document.getElementById('vrm-container') || document.body;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(container.clientWidth || window.innerWidth, container.clientHeight || window.innerHeight);
+renderer.setClearColor(0x000000, 0);
 renderer.xr.enabled = true;
+
+// Move resize logic to a function
+function onWindowResize() {
+    const container = document.getElementById('vrm-container') || document.body;
+    const width = container.clientWidth || window.innerWidth;
+    const height = container.clientHeight || window.innerHeight;
+    
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    
+    renderer.setSize(width, height);
+}
+window.addEventListener('resize', onWindowResize);
 // 用fetch查询/cur_language的值
 async function fetchLanguage() {
     try {
@@ -125,7 +138,12 @@ console.log(vrmPath);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-document.body.appendChild( renderer.domElement );
+// Append to specific container if it exists
+if (document.getElementById('vrm-container')) {
+    document.getElementById('vrm-container').appendChild(renderer.domElement);
+} else {
+    document.body.appendChild(renderer.domElement);
+}
 
 // camera
 const camera = new THREE.PerspectiveCamera( 30.0, window.innerWidth / window.innerHeight, 0.1, 20.0 );
@@ -3785,9 +3803,26 @@ window.vrmAPI = {
         window.location.reload(); 
     },
     loadScene: async (sceneId) => {
-        const config = await fetchVRMConfig();
-        config.selectedGaussSceneId = sceneId;
-        await loadGaussScene();
+        // Support for different scene types
+        const backgrounds = {
+            'room': 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=2000',
+            'beach': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=2000',
+            'garden': 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?auto=format&fit=crop&q=80&w=2000',
+            'studio': 'https://images.unsplash.com/photo-1542038784456-1ea8e935640e?auto=format&fit=crop&q=80&w=2000'
+        };
+
+        if (backgrounds[sceneId]) {
+            const loader = new THREE.TextureLoader();
+            loader.load(backgrounds[sceneId], (texture) => {
+                texture.mapping = THREE.EquirectangularReflectionMapping;
+                scene.background = texture;
+                scene.environment = texture;
+            });
+        } else {
+            const config = await fetchVRMConfig();
+            config.selectedGaussSceneId = sceneId;
+            await loadGaussScene();
+        }
     },
     speak: (isSpeaking) => {
         if (!currentVrm || !currentVrm.expressionManager) return;

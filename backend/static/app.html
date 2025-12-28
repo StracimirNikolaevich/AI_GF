@@ -614,20 +614,80 @@
             backdrop-filter: blur(10px);
             border: 2px solid rgba(255, 255, 255, 0.12);
             border-radius: 28px;
-            padding: 14px 24px;
+            padding: 14px 48px 14px 24px;
             color: white;
             font-size: 15px;
             resize: none;
             min-height: 56px;
             max-height: 120px;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .message-input:focus {
             outline: none;
             border-color: #ec4899;
             background: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.1);
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.15);
+            transform: translateY(-1px);
+        }
+
+        #micBtn.listening {
+            color: #ec4899 !important;
+            animation: micPulse 1.5s infinite;
+        }
+
+        #micBtn.listening #micPulse {
+            display: block;
+            animation: pulseIn 1.5s infinite;
+        }
+
+        @keyframes micPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes pulseIn {
+            0% { transform: scale(0); opacity: 0.5; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        .scene-selector {
+            position: absolute;
+            top: 5rem;
+            right: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            z-index: 40;
+        }
+
+        .scene-btn {
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 1rem;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 1.25rem;
+        }
+
+        .scene-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateX(-5px) scale(1.05);
+        }
+
+        .scene-btn.active {
+            border-color: #ec4899;
+            background: rgba(236, 72, 153, 0.25);
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);
         }
 
         .send-button {
@@ -1293,9 +1353,10 @@
     </div>
 
     <!-- CHAT VIEW -->
-    <div id="chat-view" class="view-section view-hidden">
-        <div class="chat-container">
-            <div class="sidebar" id="chatSidebar">
+    <div id="chat-view" class="view-section view-hidden h-screen overflow-hidden">
+        <div class="chat-container h-full flex overflow-hidden">
+            <!-- Sidebar -->
+            <div class="sidebar w-80 flex-shrink-0 flex flex-col border-r border-white/10 bg-black/40 backdrop-blur-xl" id="chatSidebar">
                 <div class="p-6 border-b border-white/10">
                     <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center gap-3">
@@ -1349,37 +1410,80 @@
                     </div>
                 </div>
             </div>
-            <div class="flex-1 flex flex-col">
-                <!-- Mobile Header -->
-                <div class="mobile-header">
-                    <button class="text-gray-400 hover:text-white" onclick="window.chatApp.toggleSidebar()">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-xs overflow-hidden" id="mobileCompanionAvatar">👤</div>
-                        <span class="font-bold text-sm" id="mobileCompanionName">Luvr.ai</span>
+
+            <!-- Main Content: Split View -->
+            <div class="flex-1 flex flex-col md:flex-row relative">
+                <!-- Left: VRM Container -->
+                <div id="vrm-container" class="w-full md:w-1/2 h-1/2 md:h-full relative overflow-hidden bg-black">
+                    <!-- Scene Selector -->
+                    <div class="scene-selector">
+                        <button onclick="window.chatApp.changeScene('room')" class="scene-btn active" title="Bedroom" id="scene-room">
+                            <i class="fas fa-bed"></i>
+                        </button>
+                        <button onclick="window.chatApp.changeScene('beach')" class="scene-btn" title="Beach" id="scene-beach">
+                            <i class="fas fa-umbrella-beach"></i>
+                        </button>
+                        <button onclick="window.chatApp.changeScene('garden')" class="scene-btn" title="Garden" id="scene-garden">
+                            <i class="fas fa-leaf"></i>
+                        </button>
+                        <button onclick="window.chatApp.changeScene('studio')" class="scene-btn" title="Studio" id="scene-studio">
+                            <i class="fas fa-camera-retro"></i>
+                        </button>
                     </div>
-                    <button class="text-gray-400 hover:text-white" onclick="backToCreate()">
-                        <i class="fas fa-plus"></i>
-                    </button>
+                    
+                    <div id="vrm-loading" class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-30 hidden">
+                        <div class="text-center">
+                            <div class="media-loading-spinner mb-3 mx-auto"></div>
+                            <p class="text-white text-sm font-medium">Summoning your companion...</p>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="chat-messages" id="chatMessages">
-                    <!-- Messages appear here -->
-                </div>
-                <div class="input-area">
-                    <div class="flex items-end gap-3 max-w-4xl mx-auto w-full">
-                        <textarea class="message-input flex-1" id="messageInput" placeholder="Type your message..." rows="1"></textarea>
-                        <div class="flex gap-2">
-                            <button class="media-button photo" id="photoButton" title="Request Photo">
-                                <i class="fas fa-camera"></i>
-                            </button>
-                            <button class="media-button video" id="videoButton" title="Request Video">
-                                <i class="fas fa-video"></i>
-                            </button>
-                            <button class="send-button" id="sendButton">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
+                <!-- Right: Chat Interface -->
+                <div class="w-full md:w-1/2 h-1/2 md:h-full flex flex-col bg-black/20 backdrop-blur-lg">
+                    <!-- Mobile Header -->
+                    <div class="mobile-header">
+                        <button class="text-gray-400 hover:text-white" onclick="window.chatApp.toggleSidebar()">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-purple-500 flex items-center justify-center text-xs overflow-hidden" id="mobileCompanionAvatar">👤</div>
+                            <span class="font-bold text-sm" id="mobileCompanionName">Luvr.ai</span>
+                        </div>
+                        <button class="text-gray-400 hover:text-white" onclick="backToCreate()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+
+                    <div class="chat-messages flex-1 overflow-y-auto p-4 space-y-4" id="chatMessages">
+                        <!-- Messages appear here -->
+                    </div>
+
+                    <div class="input-area p-4 bg-black/40 border-t border-white/10">
+                        <div class="flex items-end gap-3 max-w-4xl mx-auto w-full">
+                            <div class="relative flex-1">
+                                <textarea class="message-input w-full pr-12" id="messageInput" placeholder="Type your message..." rows="1" style="min-height: 52px; max-height: 150px;"></textarea>
+                                <button id="micBtn" onclick="window.chatApp.toggleSTT()" 
+                                    class="absolute right-3 bottom-3 p-2 rounded-lg text-white/30 hover:text-pink-400 hover:bg-white/5 transition-all"
+                                    title="Voice Input">
+                                    <i class="fas fa-microphone"></i>
+                                    <div id="micPulse" class="absolute inset-0 rounded-lg bg-pink-500/20 scale-0 transition-all hidden"></div>
+                                </button>
+                            </div>
+                            <div class="flex gap-2 pb-1">
+                                <button class="media-button p-3 rounded-full bg-white/5 text-gray-400 hover:text-yellow-400 transition-colors" onclick="window.chatApp.openGiftMenu()" title="Send Gift">
+                                    <i class="fas fa-gift"></i>
+                                </button>
+                                <button class="media-button photo p-3 rounded-full bg-white/5 text-gray-400 hover:text-pink-400 transition-colors" onclick="window.chatApp.requestMedia('image')" title="Request Photo">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                                <button class="media-button video p-3 rounded-full bg-white/5 text-gray-400 hover:text-purple-400 transition-colors" onclick="window.chatApp.requestMedia('video')" title="Request Video">
+                                    <i class="fas fa-video"></i>
+                                </button>
+                                <button class="send-button" id="sendButton" onclick="window.chatApp.sendMessage()">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1781,16 +1885,119 @@
                     icon?.classList.remove('fa-volume-mute');
                     icon?.classList.add('fa-volume-up');
                     switchBg?.classList.remove('bg-gray-500/30');
-                    switchBg?.classList.add('bg-pink-500/30');
+                    switchBg?.classList.add('bg-pink-500');
                     switchDot?.classList.remove('left-1');
                     switchDot?.classList.add('right-1');
                 } else {
                     icon?.classList.remove('fa-volume-up');
                     icon?.classList.add('fa-volume-mute');
-                    switchBg?.classList.remove('bg-pink-500/30');
+                    switchBg?.classList.remove('bg-pink-500');
                     switchBg?.classList.add('bg-gray-500/30');
                     switchDot?.classList.remove('right-1');
                     switchDot?.classList.add('left-1');
+                }
+            }
+
+            // STT and Scene Control
+            toggleSTT() {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (!SpeechRecognition) {
+                    alert('Speech recognition is not supported in this browser.');
+                    return;
+                }
+
+                if (this.recognition && this.isListening) {
+                    this.recognition.stop();
+                    return;
+                }
+
+                if (!this.recognition) {
+                    this.recognition = new SpeechRecognition();
+                    this.recognition.continuous = false;
+                    this.recognition.interimResults = false;
+                    this.recognition.lang = 'en-US';
+
+                    this.recognition.onstart = () => {
+                        this.isListening = true;
+                        document.getElementById('micBtn')?.classList.add('listening');
+                    };
+
+                    this.recognition.onresult = (event) => {
+                        const transcript = event.results[0][0].transcript;
+                        const input = document.getElementById('messageInput');
+                        if (input) {
+                            input.value = transcript;
+                            this.sendMessage();
+                        }
+                    };
+
+                    this.recognition.onerror = (e) => {
+                        console.error('STT Error:', e.error);
+                        this.stopListening();
+                    };
+
+                    this.recognition.onend = () => this.stopListening();
+                }
+
+                this.recognition.start();
+            }
+
+            stopListening() {
+                this.isListening = false;
+                document.getElementById('micBtn')?.classList.remove('listening');
+            }
+
+            changeScene(sceneId) {
+                if (window.vrmAPI && window.vrmAPI.loadScene) {
+                    window.vrmAPI.loadScene(sceneId);
+                    document.querySelectorAll('.scene-btn').forEach(btn => btn.classList.remove('active'));
+                    document.getElementById(`scene-${sceneId}`)?.classList.add('active');
+                }
+            }
+
+            requestMedia(type) {
+                const input = document.getElementById('messageInput');
+                if (input) {
+                    input.value = type === 'image' ? "Send me a picture of yourself" : "Send me a short video clip of yourself";
+                    this.sendMessage();
+                }
+            }
+
+            openGiftMenu() {
+                const gifts = [
+                    { icon: '🌹', name: 'Rose', points: 5 },
+                    { icon: '🍫', name: 'Chocolate', points: 10 },
+                    { icon: '💎', name: 'Diamond', points: 50 },
+                    { icon: '🧸', name: 'Teddy Bear', points: 20 }
+                ];
+
+                let html = `
+                    <div class="p-6">
+                        <h2 class="text-2xl font-bold mb-6 text-center text-pink-500">Choose a Gift</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            ${gifts.map(g => `
+                                <button onclick="window.chatApp.sendGift('${g.name}', ${g.points})" 
+                                    class="p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-pink-500/50 hover:bg-white/10 transition-all flex flex-col items-center group">
+                                    <span class="text-4xl mb-3 group-hover:scale-125 transition-transform">${g.icon}</span>
+                                    <span class="font-bold text-white">${g.name}</span>
+                                    <span class="text-xs text-pink-400">+${g.points} Bond</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                this.openLightbox(html);
+            }
+
+            async sendGift(name, points) {
+                this.closeLightbox();
+                const input = document.getElementById('messageInput');
+                if (input) {
+                    input.value = `*I give you a ${name}* I hope you like it!`;
+                    await this.sendMessage();
+                    
+                    // Show a toast or notification (optional)
+                    console.log(`Sent ${name}, +${points} bond points`);
                 }
             }
 

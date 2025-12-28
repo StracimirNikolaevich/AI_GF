@@ -57,6 +57,7 @@ class AICompanion:
     avatar_url: str = None
     identity_seed: int = 0
     starting_scenario: str = "first_meeting"
+    memory_summary: str = ""
     
     # Vector Memory Index (Not persisted in JSON directly)
     _vector_index: any = None
@@ -105,6 +106,36 @@ class AICompanion:
             if idx != -1 and idx < len(self._memory_texts):
                 results.append(self._memory_texts[idx])
         return results
+
+    async def summarize_memory_if_needed(self):
+        """Periodically summarize memory to maintain deep context"""
+        if len(self.memory) < 15 or len(self.memory) % 10 != 0:
+            return
+            
+        print(f"Summarizing memory for {self.name}...")
+        
+        # Take the oldest 10 interactions and the current summary
+        to_summarize = self.memory[-20:]
+        context_str = "\n".join([f"User: {m['user_message']}\nAI: {m['companion_response']}" for m in to_summarize])
+        
+        prompt = f"Summarize the key events and details from this conversation history for a long-term memory system. Keep it concise but descriptive. Focus on user preferences, shared experiences, and character development.\n\nPrevious Summary: {self.memory_summary}\n\nRecent Interactions:\n{context_str}\n\nNew Summary:"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    'https://text.pollinations.ai/',
+                    json={
+                        "messages": [{"role": "system", "content": "You are a memory summarization assistant."}, {"role": "user", "content": prompt}], 
+                        "model": "mistral",
+                        "temperature": 0.5
+                    },
+                    timeout=aiohttp.ClientTimeout(total=30)
+                ) as response:
+                    if response.status == 200:
+                        self.memory_summary = await response.text()
+                        print(f"New memory summary: {self.memory_summary[:100]}...")
+        except Exception as e:
+            print(f"Summarization error: {e}")
 
     def _get_embedding(self, text: str) -> List[float]:
         """Generate a pseudo-embedding (TF-IDF like) if no real model is available"""
@@ -470,8 +501,15 @@ def _update_relationship_level(companion: AICompanion, user_message: str):
     if any(w in msg for w in ["love", "like", "cute", "beautiful", "happy", "thanks", "thank you"]): points += 2
     if any(w in msg for w in ["hate", "bad", "stop", "boring"]): points -= 2
     
+    # Special Gift points
+    if "*i give you a" in msg:
+        if "rose" in msg: points += 5
+        elif "chocolate" in msg: points += 10
+        elif "diamond" in msg: points += 50
+        elif "teddy bear" in msg: points += 20
+
     # Slowly increase level
-    # 50 points needed per level approximately
+    # 20 points needed per level approximately (from level 1 to 10)
     current_points = getattr(companion, "_rel_points", 0)
     current_points += points
     
@@ -709,6 +747,10 @@ async def generate_chat_response(companion_id: str, user_message: str, context: 
     # 3. Generate Text Response (LLM)
     system_prompt = get_system_prompt(companion)
     
+    # Add Memory Summary if available
+    if companion.memory_summary:
+        system_prompt += f"\n\nContextual Memory Summary:\n{companion.memory_summary}"
+    
     # 4. Inject Relevant Memories using Vector Search
     relevant_memories = companion.search_memory(user_message)
     if relevant_memories:
@@ -777,6 +819,9 @@ async def generate_chat_response(companion_id: str, user_message: str, context: 
         companion.memory.append(interaction)
         companion.add_to_vector_memory(user_message, full_response)
         save_companions()
+        
+        # Trigger async summarization in background
+        asyncio.create_task(companion.summarize_memory_if_needed())
 
 def _generate_fallback_response(companion: AICompanion, user_message: str, msg_lower: str) -> str:
     """Generate a fallback response when LLM is unavailable"""
